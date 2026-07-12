@@ -139,7 +139,27 @@ function initVoices() {
     if (!select) return;
 
     // 한국어 목소리 선별 (ko-KR)
-    const koVoices = voices.filter(v => v.lang.includes('ko') || v.lang.includes('KO'));
+    let koVoices = voices.filter(v => v.lang.includes('ko') || v.lang.includes('KO'));
+    
+    // 고품질 신경망 목소리(Natural, Neural, Google Online)가 리스트 상단에 오도록 정렬
+    koVoices.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      
+      // 1순위: Edge 내장 Neural / Natural (인간 수준의 자연스러운 음성)
+      const aHasNatural = aName.includes('natural') || aName.includes('neural') || aName.includes('네추럴');
+      const bHasNatural = bName.includes('natural') || bName.includes('neural') || bName.includes('네추럴');
+      if (aHasNatural && !bHasNatural) return -1;
+      if (!aHasNatural && bHasNatural) return 1;
+      
+      // 2순위: Chrome 내장 Google 온라인 음성
+      const aHasGoogle = aName.includes('google');
+      const bHasGoogle = bName.includes('google');
+      if (aHasGoogle && !bHasGoogle) return -1;
+      if (!aHasGoogle && bHasGoogle) return 1;
+      
+      return 0;
+    });
     
     // 한국어 목소리가 없으면 영어 등 전체 로드
     const targetVoices = koVoices.length > 0 ? koVoices : voices;
@@ -148,17 +168,26 @@ function initVoices() {
     targetVoices.forEach(voice => {
       const option = document.createElement('option');
       option.value = voice.name;
-      option.textContent = `${voice.name} (${voice.lang})`;
+      
+      // 사용자 이해를 돕기 위해 Neural 보이스인 경우 표시 추가
+      const isNeural = voice.name.toLowerCase().includes('natural') || voice.name.toLowerCase().includes('neural');
+      const displayName = isNeural ? `🌟 ${voice.name} [신경망 고음질]` : voice.name;
+      
+      option.textContent = `${displayName} (${voice.lang})`;
       if (voice.name === state.voiceName) {
         option.selected = true;
       }
       select.appendChild(option);
     });
 
-    // 기본 목소리 미설정 시 첫 번째로 설정
-    if (!state.voiceName && targetVoices.length > 0) {
+    // 기본 목소리 미설정 시 최적의(가장 위에 정렬된) 목소리로 설정
+    const savedVoice = localStorage.getItem('news_voice');
+    if (!savedVoice && targetVoices.length > 0) {
       state.voiceName = targetVoices[0].name;
       localStorage.setItem('news_voice', state.voiceName);
+      if (select.options.length > 0) {
+        select.options[0].selected = true;
+      }
     }
   };
 
