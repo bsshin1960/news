@@ -594,10 +594,7 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
       body: JSON.stringify({
         contents: [{
           parts: [{ text: promptText }]
-        }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
+        }]
       })
     });
   } catch (netErr) {
@@ -621,16 +618,30 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     throw new Error('AI 응답 생성 실패: 유효한 응답을 생성하지 못했습니다.');
   }
 
-  let text = data.candidates[0].content.parts[0].text.trim();
+  const rawText = data.candidates[0].content.parts[0].text.trim();
   
-  if (text.startsWith('```')) {
-    text = text.replace(/^```json\s*/, '').replace(/```$/, '');
+  // 백엔드 명세 오류를 회피하기 위해 정밀 정규식 파서 탑재
+  let jsonString = rawText;
+  
+  // 1단계: 마크다운 JSON 블록 제거
+  const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
+  const match = jsonString.match(jsonBlockRegex);
+  if (match) {
+    jsonString = match[1].trim();
+  }
+  
+  // 2단계: 순수 JSON 배열만 추출
+  const arrayRegex = /\[\s*\{[\s\S]*\}\s*\]/;
+  const arrayMatch = jsonString.match(arrayRegex);
+  if (arrayMatch) {
+    jsonString = arrayMatch[0].trim();
   }
 
   try {
-    return JSON.parse(text);
+    return JSON.parse(jsonString);
   } catch (parseErr) {
-    throw new Error('AI 뉴스 데이터 파싱 실패: 생성된 뉴스 데이터 구조가 올바르지 않습니다.');
+    console.error('JSON 파싱 실패 원본 데이터:', rawText);
+    throw new Error('AI 뉴스 데이터 파싱 실패: 생성된 데이터의 JSON 형식이 올바르지 않습니다.');
   }
 }
 
