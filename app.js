@@ -578,13 +578,13 @@ function togglePlayPause() {
       updatePlayerControlsUI(true, true);
     }
   } else {
-    // 처음부터 재생 시작
-    playNewsAtIndex(0);
+    // 처음부터 재생 시작 (인트로 활성화)
+    playNewsAtIndex(0, true);
   }
 }
 
 // 특정 뉴스 낭독 시작
-function playNewsAtIndex(index) {
+function playNewsAtIndex(index, isPlaylistStart = false) {
   if (index < 0 || index >= state.newsList.length) {
     stopSpeech();
     return;
@@ -599,8 +599,18 @@ function playNewsAtIndex(index) {
 
   const news = state.newsList[index];
   
-  // 낭독 텍스트 합성 (뉴스 제목 + 내용)
-  const speakText = `분야: ${news.category}. 제목: ${news.title}. 내용: ${news.body}`;
+  // 낭독 텍스트 구성 (인트로 및 분야/제목 단어 제거)
+  let speakText = '';
+  if (index === 0 && isPlaylistStart) {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const date = today.getDate();
+    speakText += `${month}월 ${date}일, 오늘의 주요 뉴스를 알려드립니다. `;
+  }
+  
+  // 분야, 제목, 내용 단어를 언급하지 않고 자연스럽게 이어지도록 구성
+  speakText += `${news.category} 소식입니다. ${news.title}. ${news.body}`;
+  
   currentUtterance = new SpeechSynthesisUtterance(speakText);
 
   // 음성 설정 적용
