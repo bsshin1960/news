@@ -198,15 +198,34 @@ body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--glass-border);
-  height: 48px;
-  padding: 0 24px;
+  padding: 10px 24px;
   display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 24px;
+  flex-direction: column;
+  gap: 6px;
   position: sticky;
   top: 0;
   z-index: 900;
+  transition: background-color 0.4s ease;
+}
+
+.menu-bar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.menu-bar-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+body.light-theme .menu-bar-bottom {
+  border-top-color: rgba(99, 102, 241, 0.08);
 }
 
 .logo {
