@@ -913,17 +913,25 @@ function updatePlayerStatus(title, desc) {
 // 6. PWA 서비스 워커 등록 & 네트워크 핸들링
 // ====================================================
 function registerServiceWorker() {
+  // 캐싱으로 인한 최신 코드 반영 지연(구버전 캐시 크래시)을 원천 해결하기 위해 서비스 워커 및 로컬 캐시 해제
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then((reg) => {
-          console.log('서비스 워커가 등록되었습니다. 범위:', reg.scope);
-          initInstallPrompt();
-        })
-        .catch((err) => {
-          console.error('서비스 워커 등록 실패:', err);
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (let registration of registrations) {
+        registration.unregister().then(() => {
+          console.log('구버전 캐시 방지를 위해 서비스 워커가 해제되었습니다.');
         });
+      }
     });
+
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        keys.forEach((key) => {
+          caches.delete(key).then(() => {
+            console.log('이전 앱 캐시 스토리지 클리어 완료:', key);
+          });
+        });
+      });
+    }
   }
 
   // 네트워크 온라인/오프라인 감지
