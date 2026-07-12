@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아침 뉴스 브리핑 & TTS 플레이어</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png">
+  <meta name="theme-color" content="#6366F1">
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- 배경 테코레이션용 네온 서클 -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- PWA 설치 유도 배너 -->
+  <div id="install-banner" class="install-banner hidden">
+    <div class="banner-content">
+      <i class="fa-solid fa-cloud-arrow-down banner-icon"></i>
+      <div class="banner-text">
+        <h4>아침 뉴스 TTS를 앱으로 설치해보세요!</h4>
+        <p>홈 화면에 추가하여 오프라인에서도 편리하게 이용하세요.</p>
+      </div>
+    </div>
+    <div class="banner-actions">
+      <button id="btn-install" class="btn btn-primary">설치하기</button>
+      <button id="btn-close-banner" class="btn btn-icon-only"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- 1. 상단 풀다운 메뉴바 -->
+    <header class="menu-bar">
+      <div class="logo">
+        <i class="fa-solid fa-newspaper logo-icon"></i>
+        <span>Morning News <span class="accent">TTS</span></span>
+      </div>
+      <nav class="nav-menu">
+        <div class="menu-item dropdown">
+          <button class="menu-trigger" aria-haspopup="true" aria-expanded="false">
+            파일(F) <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <ul class="dropdown-menu" role="menu">
+            <li role="none">
+              <a href="#" id="menu-fetch" role="menuitem">
+                <i class="fa-solid fa-rotate"></i> 뉴스 새로고침 <span class="shortcut">Ctrl+R</span>
+              </a>
+            </li>
+            <li role="none">
+              <a href="#" id="menu-print" role="menuitem">
+                <i class="fa-solid fa-print"></i> 브리핑 PDF 저장 <span class="shortcut">Ctrl+P</span>
+              </a>
+            </li>
+            <li class="divider" role="none"></li>
+            <li role="none">
+              <a href="#" id="menu-exit" role="menuitem">
+                <i class="fa-solid fa-right-from-bracket"></i> 앱 종료 <span class="shortcut">Alt+F4</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="menu-item dropdown">
+          <button class="menu-trigger" aria-haspopup="true" aria-expanded="false">
+            편집(E) <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <ul class="dropdown-menu" role="menu">
+            <li role="none">
+              <a href="#" id="menu-settings" role="menuitem">
+                <i class="fa-solid fa-gear"></i> 설정(S)... <span class="shortcut">Ctrl+,</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="menu-item dropdown">
+          <button class="menu-trigger" aria-haspopup="true" aria-expanded="false">
+            도움말(H) <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <ul class="dropdown-menu" role="menu">
+            <li role="none">
+              <a href="#" id="menu-help" role="menuitem">
+                <i class="fa-solid fa-circle-question"></i> 도움말 보기 <span class="shortcut">F1</span>
+              </a>
+            </li>
+            <li role="none">
+              <a href="#" id="menu-about" role="menuitem">
+                <i class="fa-solid fa-info"></i> 앱 정보
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+      
+      <!-- 오프라인 상태 뱃지 -->
+      <div id="offline-badge" class="offline-badge hidden">
+        <i class="fa-solid fa-wifi-slash"></i> 오프라인 모드
+      </div>
+    </header>
+
+    <!-- 2. 메인 콘텐츠 브리핑 영역 -->
+    <main class="main-content">
+      <section class="header-section">
+        <div class="date-badge" id="current-date">2026년 7월 13일 월요일</div>
+        <h1 class="main-title">오늘 아침의 주요 뉴스 요약</h1>
+        <p class="subtitle">설정하신 관심 분야와 요구사항에 맞춘 최신 뉴스 브리핑입니다.</p>
+      </section>
+
+      <!-- 뉴스 카드 보드 -->
+      <div class="news-grid" id="news-grid">
+        <!-- 뉴스 로딩 스켈레톤 -->
+        <div class="news-skeleton">
+          <div class="skeleton-title"></div>
+          <div class="skeleton-content"></div>
+          <div class="skeleton-content"></div>
+          <div class="skeleton-footer"></div>
+        </div>
+        <div class="news-skeleton">
+          <div class="skeleton-title"></div>
+          <div class="skeleton-content"></div>
+          <div class="skeleton-content"></div>
+          <div class="skeleton-footer"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 3. 하단 TTS 재생 제어 패널 (Glassmorphism) -->
+    <footer class="player-panel">
+      <div class="player-container">
+        <!-- 재생 정보 -->
+        <div class="player-info">
+          <i class="fa-solid fa-volume-high speech-icon" id="speech-icon"></i>
+          <div class="track-details">
+            <h3 id="current-reading-title">낭독 대기 중</h3>
+            <p id="current-reading-desc">재생 버튼을 누르면 뉴스를 읽기 시작합니다.</p>
+          </div>
+        </div>
+
+        <!-- 재생 컨트롤 -->
+        <div class="player-controls">
+          <button id="btn-prev" class="btn btn-icon" title="이전 뉴스"><i class="fa-solid fa-backward-step"></i></button>
+          <button id="btn-play-pause" class="btn btn-play" title="재생"><i class="fa-solid fa-play"></i></button>
+          <button id="btn-stop" class="btn btn-icon" title="정지"><i class="fa-solid fa-stop"></i></button>
+          <button id="btn-next" class="btn btn-icon" title="다음 뉴스"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+
+        <!-- 볼륨 및 추가 설정 -->
+        <div class="player-extra">
+          <!-- 오디오 비주얼라이저 (애니메이션 효과) -->
+          <div class="visualizer" id="visualizer">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+          </div>
+          
+          <div class="tts-speed-control">
+            <i class="fa-solid fa-gauge-high"></i>
+            <span id="speed-label">1.0x</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 재생 프로그레스 바 -->
+      <div class="progress-container">
+        <div class="progress-bar" id="player-progress" style="width: 0%;"></div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- 4. 설정 모달 창 -->
+  <div class="modal-overlay hidden" id="modal-settings">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-sliders"></i> 뉴스 및 TTS 요구사항 설정</h2>
+        <button class="btn-close-modal" id="btn-close-settings"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="settings-form">
+          <!-- 관심 분야 체크박스 그룹 -->
+          <div class="form-group">
+            <label class="form-label">관심사 카테고리 (중복 선택 가능)</label>
+            <div class="checkbox-grid">
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="정치" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                정치 (Politics)
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="경제" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                경제 (Economy)
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="증시" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                증시 (Stock Market)
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="과학" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                과학 (Science)
+              </label>
+            </div>
+          </div>
+
+          <!-- 요구사항 입력 프롬프트 -->
+          <div class="form-group">
+            <label class="form-label" for="prompt-input">상세 뉴스 요구 사항 (AI 프롬프트)</label>
+            <textarea id="prompt-input" placeholder="예: '주요 뉴스 요약본만 간단하게 작성해줘', '기술 중심의 트렌드를 요약해주고, 전문 용어는 쉽게 풀어서 설명해줘'" rows="4"></textarea>
+            <small class="form-help">선택한 관심 분야의 뉴스를 수집하고 필터링/요약할 때 반영되는 맞춤 요구사항입니다.</small>
+          </div>
+
+          <!-- AI API 설정 (실제 동작을 위한 확장성 제공) -->
+          <div class="form-group">
+            <label class="form-label" for="api-key-input">Gemini API Key (선택 사항)</label>
+            <input type="password" id="api-key-input" placeholder="AI 실시간 요약을 활성화하려면 Gemini API Key를 입력하세요.">
+            <small class="form-help">입력하지 않을 경우, 사전 정의된 최신 맞춤형 모의 뉴스 데이터로 동작합니다. 키는 브라우저 로컬 저장소에 안전하게 저장됩니다.</small>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- TTS 음성 및 속도 설정 -->
+          <div class="form-group row-group">
+            <div class="sub-group">
+              <label class="form-label" for="voice-select">낭독 목소리</label>
+              <select id="voice-select" class="form-control">
+                <!-- JavaScript에서 한국어 지원 목소리 목록 로드 -->
+              </select>
+            </div>
+            <div class="sub-group">
+              <label class="form-label" for="speed-slider">낭독 속도</label>
+              <div class="slider-container">
+                <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1.0">
+                <span class="slider-val" id="speed-val">1.0x</span>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btn-reset-settings">초기화</button>
+        <button class="btn btn-primary" id="btn-save-settings">설정 저장 및 적용</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 도움말 모달 창 -->
+  <div class="modal-overlay hidden" id="modal-help">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-circle-question"></i> 사용 방법 및 안내</h2>
+        <button class="btn-close-modal" id="btn-close-help"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body markdown-body">
+        <h3>💡 주요 조작 방법</h3>
+        <ul>
+          <li><strong>아침 뉴스 브리핑 받아오기</strong>: 상단 메뉴의 <code>파일</code> -> <code>뉴스 새로고침 (Ctrl+R)</code>을 선택하면, 설정한 필터에 맞춰 최신 뉴스가 요약 제공됩니다.</li>
+          <li><strong>관심사 및 뉴스 스타일 설정</strong>: 상단 메뉴의 <code>편집</code> -> <code>설정 (Ctrl+,)</code>을 눌러 관심사 체크박스를 선택하고, 원하는 요약 스타일(프롬프트)을 입력할 수 있습니다.</li>
+          <li><strong>뉴스 TTS 낭독</strong>:
+            <ul>
+              <li>하단 재생 제어 패널의 <code>재생 (▶)</code> 버튼을 누르면 전체 뉴스를 처음부터 순차적으로 읽어줍니다.</li>
+              <li>각 뉴스 카드의 오른쪽 하단에 있는 <code>듣기</code> 버튼을 누르면 해당 뉴스를 개별적으로 들을 수 있습니다.</li>
+              <li>현재 낭독 중인 카드는 테두리가 화려한 네온 컬러로 강조되며, 화면이 자동으로 스크롤됩니다.</li>
+            </ul>
+          </li>
+          <li><strong>PDF로 저장하기</strong>: 상단 메뉴의 <code>파일</code> -> <code>브리핑 PDF 저장 (Ctrl+P)</code>을 누르면 깔끔하게 다듬어진 인쇄 스타일로 뉴스 브리핑을 보관할 수 있습니다.</li>
+        </ul>
+        <br>
+        <h3>📱 PWA 설치 방법</h3>
+        <ul>
+          <li><strong>데스크톱</strong>: 주소창 우측의 설치 아이콘을 클릭하거나 상단의 '설치하기' 배너를 누르면 독립형 앱으로 설치됩니다.</li>
+          <li><strong>모바일 (Android/iOS)</strong>: 크롬의 '홈 화면에 추가' 메뉴나 사파리의 '홈 화면에 추가'를 터치하여 앱처럼 바로 실행할 수 있습니다.</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btn-confirm-help">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 앱 정보 모달 창 -->
+  <div class="modal-overlay hidden" id="modal-about">
+    <div class="modal-card modal-small">
+      <div class="modal-header">
+        <h2>앱 정보</h2>
+        <button class="btn-close-modal" id="btn-close-about"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body text-center">
+        <i class="fa-solid fa-newspaper about-logo"></i>
+        <h3>Morning News TTS Player</h3>
+        <p class="version">Version 1.0.0 (PWA)</p>
+        <p class="dev-info">© 2026 Antigravity. All Rights Reserved.</p>
+        <p class="desc-info">사용자 맞춤형 뉴스를 수집/요약하고, 고음질 음성 합성 기술을 통해 바쁜 아침을 효율적으로 만들어 드립니다.</p>
+      </div>
+      <div class="modal-footer justify-center">
+        <button class="btn btn-primary" id="btn-confirm-about">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

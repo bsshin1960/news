@@ -1,0 +1,22 @@
+{
+  "name": "아침 뉴스 브리핑 & TTS 플레이어",
+  "short_name": "아침 뉴스 TTS",
+  "description": "매일 아침 주요 뉴스를 요약하여 전송하고 TTS 음성으로 읽어주는 모던 PWA 서비스",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#6366F1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
