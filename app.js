@@ -548,7 +548,7 @@ async function fetchNews() {
     
   } catch (error) {
     console.error('뉴스 가져오기 실패:', error);
-    renderErrorMessage();
+    renderErrorMessage(error.message);
   }
 }
 
@@ -569,7 +569,7 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     사용자의 추가 요구사항: "${prompt || '바쁜 아침에 핵심만 쉽게 요약해줘.'}"
 
     이 설정에 맞춰서 가상 또는 가공된 신뢰성 높은 최신 아침 뉴스 브리핑 5가지를 생성하고 JSON 배열 형식으로만 반환해줘.
-    JSON 형식은 정확하게 다음 스키마를 만족해야 해. 마크다운 기호(\`\`\`json ...) 없이 오직 순수한 JSON 텍스트로만 응답해줘.
+    JSON 형식은 정확하게 다음 스키마를 만족해야 해.
 
     [
       {
@@ -584,31 +584,54 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: promptText }]
-      }]
-    })
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: promptText }]
+        }],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      })
+    });
+  } catch (netErr) {
+    throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
+  }
 
   if (!response.ok) {
-    throw new Error('Gemini API 통신 중 에러 발생');
+    let errDetail = 'API 호출 실패';
+    try {
+      const errJson = await response.json();
+      if (errJson.error && errJson.error.message) {
+        errDetail = errJson.error.message;
+      }
+    } catch (_) {}
+    throw new Error(`구글 API 오류: ${errDetail}`);
   }
 
   const data = await response.json();
+  
+  if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
+    throw new Error('AI 응답 생성 실패: 유효한 응답을 생성하지 못했습니다.');
+  }
+
   let text = data.candidates[0].content.parts[0].text.trim();
   
-  // 가끔 마크다운 ```json ... ``` 랩핑이 들어오는 경우 전처리
   if (text.startsWith('```')) {
     text = text.replace(/^```json\s*/, '').replace(/```$/, '');
   }
 
-  return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch (parseErr) {
+    throw new Error('AI 뉴스 데이터 파싱 실패: 생성된 뉴스 데이터 구조가 올바르지 않습니다.');
+  }
 }
 
 // 로딩 화면 그리기
@@ -631,13 +654,15 @@ function showNewsLoading() {
 }
 
 // 에러 화면
-function renderErrorMessage() {
+function renderErrorMessage(message = '') {
   const grid = document.getElementById('news-grid');
+  const errorInfo = message ? `<p style="color: var(--accent); font-size: 13px; margin-top: 12px; font-weight: 600;">상세 원인: ${message}</p>` : '';
   grid.innerHTML = `
     <div class="news-card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
       <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: var(--accent); margin-bottom: 16px;"></i>
       <h3 style="margin-bottom: 8px;">뉴스를 가져오지 못했습니다</h3>
       <p style="color: var(--text-muted); font-size: 13px;">API 키 오류 또는 인터넷 연결이 불안정할 수 있습니다. 설정 창에서 API 키를 재확인하시거나 오프라인 모드용 기본 모의 뉴스를 사용해 보세요.</p>
+      ${errorInfo}
       <button class="btn btn-primary" onclick="location.reload()" style="margin-top: 16px;">새로고침</button>
     </div>
   `;
