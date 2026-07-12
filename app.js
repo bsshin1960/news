@@ -409,6 +409,21 @@ async function fetchNews() {
   
   const hasApiKey = state.apiKey.trim() !== '';
 
+  // 현재 시각 기준 상대적 동적 시간을 반환하는 헬퍼 함수 (12시간 이내)
+  const getDynamicTime = (minusMinutes) => {
+    const now = new Date();
+    const target = new Date(now.getTime() - minusMinutes * 60 * 1000);
+    const hours = target.getHours();
+    const minutes = target.getMinutes();
+    const ampm = hours >= 12 ? '오후' : '오전';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+    return `${ampm} ${displayHours}:${displayMinutes}`;
+  };
+
+  // 모의 뉴스별 현재 시각 기준 상대적 시간차 배열 (분 단위, 모두 12시간 = 720분 이내)
+  const timeOffsets = [15, 45, 90, 150, 240, 360, 480, 600];
+
   try {
     if (hasApiKey) {
       // Gemini API가 제공된 경우 실시간 요약 뉴스 로드
@@ -427,7 +442,7 @@ async function fetchNews() {
 
       // 사용자가 입력한 요구사항(프롬프트)에 맞춰 텍스트를 커스터마이징 (재미 요소 추가)
       const promptStyle = state.prompt.toLowerCase();
-      state.newsList = filtered.map(item => {
+      state.newsList = filtered.map((item, idx) => {
         let modifiedBody = item.body;
         let modifiedTitle = item.title;
         
@@ -439,10 +454,14 @@ async function fetchNews() {
           modifiedBody = '🤖 [쉽게 읽기] ' + modifiedBody.replace('경감', '줄임').replace('합성', '만들기').replace('경신', '뛰어넘음');
         }
 
+        // 현재 시각 기준 12시간 이내의 실시간 동적 시간 부여
+        const dynamicTime = getDynamicTime(timeOffsets[idx % timeOffsets.length]);
+
         return {
           ...item,
           title: modifiedTitle,
-          body: modifiedBody
+          body: modifiedBody,
+          time: dynamicTime
         };
       });
     }
@@ -459,8 +478,16 @@ async function fetchNews() {
 
 // Gemini API를 사용하여 뉴스 요약 생성
 async function fetchGeminiNews(apiKey, categories, prompt) {
+  const currentLocalTimeStr = new Date().toLocaleString('ko-KR');
+
   const promptText = `
     역할: 전문 아침 뉴스 앵커 및 아나운서
+    
+    시간 제한 규정 (가장 중요):
+    현재 사용자의 로컬 시각은 [ ${currentLocalTimeStr} ] 입니다.
+    반드시 이 기준 시각으로부터 최대 12시간 이내(현재 시각 기준 12시간 전부터 현재 시각 사이)에 발생한 실제 최신 뉴스나 트렌디한 브리핑만 가져와야 합니다. 
+    12시간이 경과한 옛날 과거 뉴스는 절대로 포함해서는 안 되며, 들려주어서도 안 됩니다. 무조건 12시간 이내의 최신성 정보만 취급하세요.
+
     요청사항: 
     사용자가 선택한 관심 분야는 다음과 같습니다: [${categories.join(', ')}].
     사용자의 추가 요구사항: "${prompt || '바쁜 아침에 핵심만 쉽게 요약해줘.'}"
