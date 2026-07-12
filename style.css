@@ -202,7 +202,8 @@ body {
   padding: 0 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 24px;
   position: sticky;
   top: 0;
   z-index: 900;
@@ -1381,6 +1382,7 @@ body.dark-theme .markdown-body code {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-left: auto;
 }
 
 .btn-theme-toggle {
