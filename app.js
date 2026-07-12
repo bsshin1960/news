@@ -84,6 +84,7 @@ let voices = [];
 window.addEventListener('DOMContentLoaded', () => {
   initStorage();
   initVoices();
+  initTheme(); // 테마 초기화
   bindUIEvents();
   bindKeyboardShortcuts();
   registerServiceWorker();
@@ -136,7 +137,8 @@ function initVoices() {
   const populate = () => {
     voices = synth.getVoices();
     const select = document.getElementById('voice-select');
-    if (!select) return;
+    const playerSelect = document.getElementById('player-voice-select');
+    if (!select || !playerSelect) return;
 
     // 한국어 목소리 선별 (ko-KR)
     let koVoices = voices.filter(v => v.lang.includes('ko') || v.lang.includes('KO'));
@@ -165,19 +167,21 @@ function initVoices() {
     const targetVoices = koVoices.length > 0 ? koVoices : voices;
     
     select.innerHTML = '';
+    playerSelect.innerHTML = '';
     targetVoices.forEach(voice => {
       const option = document.createElement('option');
       option.value = voice.name;
       
       // 사용자 이해를 돕기 위해 Neural 보이스인 경우 표시 추가
       const isNeural = voice.name.toLowerCase().includes('natural') || voice.name.toLowerCase().includes('neural');
-      const displayName = isNeural ? `🌟 ${voice.name} [신경망 고음질]` : voice.name;
+      const displayName = isNeural ? `🌟 ${voice.name} [신경망]` : voice.name;
       
       option.textContent = `${displayName} (${voice.lang})`;
       if (voice.name === state.voiceName) {
         option.selected = true;
       }
       select.appendChild(option);
+      playerSelect.appendChild(option.cloneNode(true)); // 플레이어 퀵 설정에도 동시 주입
     });
 
     // 기본 목소리 미설정 시 최적의(가장 위에 정렬된) 목소리로 설정
@@ -188,12 +192,42 @@ function initVoices() {
       if (select.options.length > 0) {
         select.options[0].selected = true;
       }
+      if (playerSelect.options.length > 0) {
+        playerSelect.options[0].selected = true;
+      }
+    } else if (savedVoice) {
+      select.value = savedVoice;
+      playerSelect.value = savedVoice;
     }
   };
 
   populate();
   if (synth.onvoiceschanged !== undefined) {
     synth.onvoiceschanged = populate;
+  }
+}
+
+// 테마 초기 로딩 및 업데이트 (기본값: 라이트 모드)
+function initTheme() {
+  const savedTheme = localStorage.getItem('app_theme') || 'light';
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-theme');
+  } else {
+    document.body.classList.remove('dark-theme');
+  }
+  updateThemeIcon(savedTheme);
+}
+
+function updateThemeIcon(theme) {
+  const toggleBtn = document.getElementById('btn-theme-toggle');
+  if (!toggleBtn) return;
+  
+  if (theme === 'dark') {
+    toggleBtn.innerHTML = '<i class="fa-solid fa-sun"></i>';
+    toggleBtn.title = '라이트 모드로 변경';
+  } else {
+    toggleBtn.innerHTML = '<i class="fa-solid fa-moon"></i>';
+    toggleBtn.title = '다크 모드로 변경';
   }
 }
 
@@ -323,6 +357,42 @@ function bindUIEvents() {
   document.getElementById('btn-prev').addEventListener('click', () => {
     playPrevNews();
   });
+
+  // --- 플레이어바 목소리 퀵 설정 연동 ---
+  const playerVoiceSelect = document.getElementById('player-voice-select');
+  if (playerVoiceSelect) {
+    playerVoiceSelect.addEventListener('change', (e) => {
+      const selectedVal = e.target.value;
+      state.voiceName = selectedVal;
+      localStorage.setItem('news_voice', selectedVal);
+
+      // 설정 모달 내 목소리 드롭다운 동기화
+      const configSelect = document.getElementById('voice-select');
+      if (configSelect) {
+        configSelect.value = selectedVal;
+      }
+
+      // 재생 중인 경우 새 목소리로 낭독 바로 갱신
+      if (state.isPlaying) {
+        const currentIndex = state.currentNewsIndex;
+        stopSpeech(false); // UI 초기화 방지
+        setTimeout(() => {
+          playNewsAtIndex(currentIndex);
+        }, 150);
+      }
+    });
+  }
+
+  // --- 다크/라이트 테마 변경 토글 스위치 ---
+  const btnThemeToggle = document.getElementById('btn-theme-toggle');
+  if (btnThemeToggle) {
+    btnThemeToggle.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-theme');
+      const themeMode = isDark ? 'dark' : 'light';
+      localStorage.setItem('app_theme', themeMode);
+      updateThemeIcon(themeMode);
+    });
+  }
 }
 
 // 키보드 단축키
@@ -385,6 +455,12 @@ function saveSettings() {
   localStorage.setItem('news_api_key', apiKeyValue);
   localStorage.setItem('news_voice', voiceValue);
   localStorage.setItem('news_speed', speedValue.toString());
+
+  // 플레이어바 목소리 퀵 드롭다운 동기화
+  const playerVoiceSelect = document.getElementById('player-voice-select');
+  if (playerVoiceSelect) {
+    playerVoiceSelect.value = voiceValue;
+  }
 
   // 플레이어 속도 라벨 업데이트
   document.getElementById('speed-label').innerText = `${speedValue.toFixed(1)}x`;

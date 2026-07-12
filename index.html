@@ -99,9 +99,14 @@
         </div>
       </nav>
       
-      <!-- 오프라인 상태 뱃지 -->
-      <div id="offline-badge" class="offline-badge hidden">
-        <i class="fa-solid fa-wifi-slash"></i> 오프라인 모드
+      <!-- 테마 토글 버튼 및 오프라인 뱃지 -->
+      <div class="header-actions">
+        <button id="btn-theme-toggle" class="btn-theme-toggle" title="테마 변경 (라이트/다크)">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <div id="offline-badge" class="offline-badge hidden">
+          <i class="fa-solid fa-wifi-slash"></i> 오프라인 모드
+        </div>
       </div>
     </header>
 
@@ -153,6 +158,14 @@
 
         <!-- 볼륨 및 추가 설정 -->
         <div class="player-extra">
+          <!-- 목소리 퀵 선택 드롭다운 -->
+          <div class="player-voice-control">
+            <i class="fa-solid fa-user-gear"></i>
+            <select id="player-voice-select" title="목소리 변경 및 설정">
+              <!-- JS에서 옵션 바인딩 -->
+            </select>
+          </div>
+
           <!-- 오디오 비주얼라이저 (애니메이션 효과) -->
           <div class="visualizer" id="visualizer">
             <span class="bar"></span>

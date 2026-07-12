@@ -1,27 +1,27 @@
 /* ----------------------------------------------------
-   1. Design System & Global Styles
+   1. Design System & Global Styles (기본: 라이트 모드)
 ---------------------------------------------------- */
 :root {
-  --bg-dark: #090d16;
-  --bg-dark-accent: #151a2e;
-  --glass-bg: rgba(21, 26, 46, 0.45);
-  --glass-bg-hover: rgba(30, 41, 59, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-border-focus: rgba(99, 102, 241, 0.4);
+  --bg-dark: #f1f5f9;
+  --bg-dark-accent: #ffffff;
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-bg-hover: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(99, 102, 241, 0.12);
+  --glass-border-focus: rgba(99, 102, 241, 0.45);
   
   --primary: #6366f1;
-  --primary-glow: rgba(99, 102, 241, 0.35);
+  --primary-glow: rgba(99, 102, 241, 0.12);
   --secondary: #06b6d4;
-  --secondary-glow: rgba(6, 182, 212, 0.3);
+  --secondary-glow: rgba(6, 182, 212, 0.08);
   --accent: #ec4899;
   
-  --text-primary: #f8fafc;
-  --text-muted: #94a3b8;
+  --text-primary: #0f172a;
+  --text-muted: #475569;
   --text-dark: #0f172a;
   
-  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.5);
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 25px -5px rgba(99, 102, 241, 0.06), 0 8px 10px -6px rgba(99, 102, 241, 0.06);
+  --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.25);
   
   --font-family: 'Outfit', 'Noto Sans KR', sans-serif;
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -33,6 +33,40 @@
   padding: 0;
 }
 
+/* 다크 테마 변수 오버라이드 */
+body.dark-theme {
+  --bg-dark: #090d16;
+  --bg-dark-accent: #151a2e;
+  --glass-bg: rgba(21, 26, 46, 0.45);
+  --glass-bg-hover: rgba(30, 41, 59, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-focus: rgba(99, 102, 241, 0.4);
+  
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  
+  --primary-glow: rgba(99, 102, 241, 0.35);
+  --secondary-glow: rgba(6, 182, 212, 0.3);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.5);
+}
+
+.bg-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+  transition: opacity 0.4s ease;
+}
+
+body.dark-theme .bg-glow {
+  opacity: 0.4;
+  mix-blend-mode: screen;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-dark);
@@ -41,6 +75,7 @@ body {
   overflow-x: hidden;
   position: relative;
   line-height: 1.6;
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ----------------------------------------------------
@@ -673,10 +708,50 @@ body {
 .player-extra {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   justify-content: flex-end;
-  width: 30%;
-  min-width: 150px;
+  width: 38%;
+  min-width: 280px;
+}
+
+.player-voice-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  max-width: 170px;
+  width: 100%;
+}
+
+.player-voice-control i {
+  color: var(--secondary);
+}
+
+#player-voice-select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 11px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+  width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#player-voice-select option {
+  background: #0f1424;
+  color: var(--text-primary);
 }
 
 /* Audio Visualizer Wave effect */
@@ -1152,4 +1227,186 @@ input[type="range"]::-webkit-slider-thumb:hover {
   .card-body {
     color: #444 !important;
   }
+}
+
+/* ----------------------------------------------------
+   10. Light/Dark Theme & Component UI Toggle Styles
+---------------------------------------------------- */
+/* 라이트 모드 (기본) UI 구성요소 스타일링 */
+.menu-bar {
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.dropdown-menu {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(99, 102, 241, 0.15);
+}
+
+.dropdown-menu li a:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--primary);
+}
+
+.main-title {
+  background: linear-gradient(to right, #0f172a, #312e81, #083344);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-card-listen {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-primary);
+}
+
+.player-panel {
+  background: rgba(255, 255, 255, 0.85);
+  border-top-color: rgba(99, 102, 241, 0.15);
+}
+
+.tts-speed-control {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.player-voice-control {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+#player-voice-select option {
+  background: #ffffff;
+  color: var(--text-primary);
+}
+
+.modal-card {
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1), 0 0 30px rgba(99, 102, 241, 0.05);
+}
+
+.modal-footer {
+  background: #f8fafc;
+  border-top-color: rgba(99, 102, 241, 0.1);
+}
+
+textarea,
+select,
+input[type="password"] {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(99, 102, 241, 0.12);
+  color: #0f172a;
+}
+
+.checkbox-container {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.markdown-body code {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--primary);
+}
+
+/* 다크 모드 (body.dark-theme) 시 원복 및 재지정 */
+body.dark-theme .menu-bar {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+body.dark-theme .dropdown-menu {
+  background: rgba(15, 22, 42, 0.95);
+  border-color: var(--glass-border);
+}
+
+body.dark-theme .dropdown-menu li a:hover {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--text-primary);
+}
+
+body.dark-theme .main-title {
+  background: linear-gradient(to right, #ffffff, #c7d2fe, #a5f3fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+body.dark-theme .btn-card-listen {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+body.dark-theme .player-panel {
+  background: rgba(15, 23, 42, 0.75);
+  border-top-color: var(--glass-border);
+}
+
+body.dark-theme .tts-speed-control {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-theme .player-voice-control {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-theme #player-voice-select option {
+  background: #0f1424;
+  color: var(--text-primary);
+}
+
+body.dark-theme .modal-card {
+  background: #0f1424;
+  border-color: var(--glass-border-focus);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(99, 102, 241, 0.15);
+}
+
+body.dark-theme .modal-footer {
+  background: rgba(10, 14, 28, 0.4);
+  border-top-color: var(--glass-border);
+}
+
+body.dark-theme textarea,
+body.dark-theme select,
+body.dark-theme input[type="password"] {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--glass-border);
+  color: var(--text-primary);
+}
+
+body.dark-theme .checkbox-container {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+body.dark-theme .markdown-body code {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+/* 테마 스위치 제어 버튼 레이아웃 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-theme-toggle {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+}
+
+.btn-theme-toggle:hover {
+  transform: scale(1.08);
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--primary);
+}
+
+body.dark-theme .btn-theme-toggle {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-theme .btn-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
