@@ -596,7 +596,7 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
           parts: [{ text: promptText }]
         }],
         generationConfig: {
-          responseMimeType: "application/json"
+          response_mime_type: "application/json"
         }
       })
     });
