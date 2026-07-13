@@ -1054,20 +1054,16 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
         errMsg = errJson.error?.message || JSON.stringify(errJson);
       } catch (_) {}
 
-      // 인증 오류만 즉시 중단
+      // 인증 오류만 즉시 중단 (잘못된 API 키)
       if (response.status === 401 || response.status === 403) {
-        throw new Error('API 키 오류: API 키가 유효하지 않거나 권한이 없습니다. 구글 AI Studio에서 키를 재발급 받으세요.');
+        throw new Error(`API 키 오류: API 키가 유효하지 않거나 권한이 없습니다. 구글 AI Studio에서 키를 재발급 받으세요. (상세: ${errMsg || response.statusText})`);
       }
 
-      if (response.status === 429) {
-        const retryMs = Math.min(extractRetryDelayMs(errMsg) || 45000, 70000);
-        const retrySeconds = Math.ceil(retryMs / 1000);
-        lastError = `[${version}/${model}] 요청 한도 초과, ${retrySeconds}초 후 재시도`;
-        console.warn(lastError, errMsg);
-        updatePlayerStatus('요청 한도 대기 중', `Gemini 무료 요청 한도에 도달했습니다. ${retrySeconds}초 후 자동으로 다시 시도합니다...`);
-        await sleep(retryMs);
-
+      // 400(Bad Request) 혹은 429(Too Many Requests)이고 검색 도구가 켜져 있다면, 검색 도구 없이 1회 즉시 재시도
+      if ((response.status === 400 || response.status === 429) && requestBody.tools) {
+        console.warn(`[${version}/${model}] 오류(${response.status}) 감지, 검색 도구(tools) 제거 후 대기 없이 재시도...`);
         try {
+          delete requestBody.tools;
           response = await rateLimitedFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1077,33 +1073,26 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
           throw new Error(`네트워크 연결 실패: 인터넷 상태를 확인해 주세요. 상세: ${netErr.message || netErr}`);
         }
 
-        if (!response.ok) {
-          const retryStatus = response.status;
-          let retryErrMsg = '';
+        if (response.ok) {
+          console.log(`✅ [${version}/${model}] 검색 도구 제거 재시도 성공`);
+        } else {
           try {
             const retryErrJson = await response.json();
-            retryErrMsg = retryErrJson.error?.message || JSON.stringify(retryErrJson);
+            errMsg = retryErrJson.error?.message || JSON.stringify(retryErrJson);
           } catch (_) {}
-          lastError = `[${version}/${model}] 요청 한도 재시도 실패: ${retryErrMsg || response.statusText}`;
-          console.warn(lastError);
-          if (retryStatus === 429) {
-            throw new Error(`Gemini 무료 요청 한도에 도달했습니다. ${retrySeconds}초 대기 후에도 한도가 풀리지 않았습니다. 잠시 뒤 다시 시도해 주세요.`);
-          }
-          continue;
         }
       }
 
+      // 검색 도구 없이도 여전히 에러라면, 다음 폴백 모델로 즉각 이동
       if (!response.ok) {
-        // 검색 도구 없이 재시도하면 모델이 과거 학습 데이터로 뉴스를 만들 수 있으므로 폐기한다.
-        if (response.status === 400 && version === 'v1beta') {
-          lastError = `[${version}/${model}] 검색 도구 사용 실패: ${errMsg || response.statusText}`;
-          console.warn(`모델 ${version}/${model} 검색 도구 사용 실패, 다음 모델로...`);
-          continue;
-        } else {
-          lastError = `[${version}/${model}] ${errMsg || response.statusText}`;
-          console.warn(`모델 ${version}/${model} 사용 불가(${response.status}), 다음 모델로 폴백...`);
-          continue;
+        lastError = `[${version}/${model}] 에러 코드 ${response.status} (상세: ${errMsg || response.statusText})`;
+        console.warn(`모델 ${version}/${model} 사용 실패로 다음 모델 폴백...`, lastError);
+        
+        // 429 한도 초과의 경우 다음 모델 진입 전 2초간 짧은 여유 대기만 제공
+        if (response.status === 429) {
+          await sleep(2000);
         }
+        continue;
       }
     }
     // 성공한 경우 파싱 진행
