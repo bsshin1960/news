@@ -189,21 +189,29 @@ function initStorage() {
     categoryAll.checked = allChecked;
   }
 
-  document.getElementById('prompt-input').value = state.prompt;
-  document.getElementById('api-key-input').value = state.apiKey;
-  document.getElementById('speed-slider').value = state.speed;
-  document.getElementById('speed-val').innerText = `${state.speed.toFixed(1)}x`;
-  document.getElementById('speed-label').innerText = `${state.speed.toFixed(1)}x`;
+  const promptInput = document.getElementById('prompt-input');
+  if (promptInput) promptInput.value = state.prompt;
+  
+  const apiKeyInput = document.getElementById('api-key-input');
+  if (apiKeyInput) apiKeyInput.value = state.apiKey;
+  
+  const speedSlider = document.getElementById('speed-slider');
+  if (speedSlider) speedSlider.value = state.speed;
+  
+  const speedVal = document.getElementById('speed-val');
+  if (speedVal) speedVal.innerText = `${state.speed.toFixed(1)}x`;
+  
+  const speedLabel = document.getElementById('speed-label');
+  if (speedLabel) speedLabel.innerText = `${state.speed.toFixed(1)}x`;
 }
 
 // 브라우저의 목소리 목록 가져오기 및 채우기
 function initVoices() {
-  // SpeechSynthesis는 비동기로 로드되므로 이벤트 감지 필요
   const populate = () => {
     voices = synth.getVoices();
     const select = document.getElementById('voice-select');
     const playerSelect = document.getElementById('player-voice-select');
-    if (!select || !playerSelect) return;
+    if (!select) return;
 
     // 한국어 목소리 선별 (ko-KR)
     let koVoices = voices.filter(v => v.lang.includes('ko') || v.lang.includes('KO'));
@@ -416,21 +424,40 @@ function bindUIEvents() {
   });
 
   // --- TTS 오디오 플레이어 조작 ---
-  document.getElementById('btn-play-pause').addEventListener('click', () => {
-    togglePlayPause();
-  });
+  const btnSpeakerToggle = document.getElementById('btn-speaker-toggle');
+  if (btnSpeakerToggle) {
+    btnSpeakerToggle.addEventListener('click', () => {
+      togglePlayPause();
+    });
+  }
 
-  document.getElementById('btn-stop').addEventListener('click', () => {
-    stopSpeech();
-  });
+  const btnPlayPause = document.getElementById('btn-play-pause');
+  if (btnPlayPause) {
+    btnPlayPause.addEventListener('click', () => {
+      togglePlayPause();
+    });
+  }
 
-  document.getElementById('btn-next').addEventListener('click', () => {
-    playNextNews();
-  });
+  const btnStop = document.getElementById('btn-stop');
+  if (btnStop) {
+    btnStop.addEventListener('click', () => {
+      stopSpeech();
+    });
+  }
 
-  document.getElementById('btn-prev').addEventListener('click', () => {
-    playPrevNews();
-  });
+  const btnNext = document.getElementById('btn-next');
+  if (btnNext) {
+    btnNext.addEventListener('click', () => {
+      playNextNews();
+    });
+  }
+
+  const btnPrev = document.getElementById('btn-prev');
+  if (btnPrev) {
+    btnPrev.addEventListener('click', () => {
+      playPrevNews();
+    });
+  }
 
   // --- 플레이어바 목소리 퀵 설정 연동 ---
   const playerVoiceSelect = document.getElementById('player-voice-select');
@@ -567,7 +594,10 @@ function saveSettings() {
   }
 
   // 플레이어 속도 라벨 업데이트
-  document.getElementById('speed-label').innerText = `${speedValue.toFixed(1)}x`;
+  const speedLabel = document.getElementById('speed-label');
+  if (speedLabel) {
+    speedLabel.innerText = `${speedValue.toFixed(1)}x`;
+  }
 
   // 재생 중인 Utterance가 있다면 바로 속도/목소리 변경 반영
   if (synth.speaking) {
@@ -1349,13 +1379,13 @@ function updatePlayerControlsUI(playing, paused) {
   const visualizer = document.getElementById('visualizer');
 
   if (playing && !paused) {
-    playPauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-    speechIcon.classList.add('playing');
-    visualizer.classList.add('active');
+    if (playPauseBtn) playPauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+    if (speechIcon) speechIcon.classList.add('playing');
+    if (visualizer) visualizer.classList.add('active');
   } else {
-    playPauseBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-    speechIcon.classList.remove('playing');
-    visualizer.classList.remove('active');
+    if (playPauseBtn) playPauseBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    if (speechIcon) speechIcon.classList.remove('playing');
+    if (visualizer) visualizer.classList.remove('active');
   }
 }
 
@@ -1369,8 +1399,10 @@ function updateProgressBar(index) {
 
 // 플레이어 안내 텍스트 출력
 function updatePlayerStatus(title, desc) {
-  document.getElementById('current-reading-title').innerText = title;
-  document.getElementById('current-reading-desc').innerText = desc;
+  const titleEl = document.getElementById('current-reading-title');
+  const descEl = document.getElementById('current-reading-desc');
+  if (titleEl) titleEl.innerText = title;
+  if (descEl) descEl.innerText = desc;
 }
 
 // ====================================================
