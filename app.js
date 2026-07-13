@@ -817,8 +817,25 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
     speakText += `${month}월 ${date}일, 오늘의 주요 뉴스를 알려드립니다. `;
   }
   
-  // 분야, 제목, 내용 단어를 언급하지 않고 자연스럽게 이어지도록 구성
-  speakText += `${news.category} 소식입니다. ${news.title}. ${news.body}`;
+  // 직전 카드와 동일 카테고리 여부 검사
+  const isSameCategory = index > 0 && state.newsList[index - 1].category === news.category;
+  
+  // 본문 가공: "[카테고리] 뉴스/소식입니다. " 중복 인트로 제거 기믹
+  let processedBody = news.body;
+  if (isSameCategory) {
+    // 동일 카테고리 연속 시 "증시 뉴스입니다. ", "증시 소식입니다. " 문구를 정규식으로 안전하게 잘라냅니다.
+    const categoryIntroRegex = new RegExp(`^${news.category}\\s*(뉴스|소식)입니다\\.?\\s*`, 'i');
+    processedBody = processedBody.replace(categoryIntroRegex, '');
+  }
+
+  // 1. 카테고리가 최초로 시작할 때만 카테고리 정보 안내
+  if (!isSameCategory) {
+    speakText += `${news.category} 소식입니다. `;
+  }
+  
+  // 2. [두번째 이미지 요구사항 반영]: 제목(news.title) 읽기는 완전히 생략
+  // 3. 가공된 본문만 자연스럽게 추가하여 낭독
+  speakText += processedBody;
   
   currentUtterance = new SpeechSynthesisUtterance(speakText);
 
