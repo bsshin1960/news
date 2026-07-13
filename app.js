@@ -111,7 +111,7 @@ function initStorage() {
     state.prompt = savedPrompt;
   }
   if (savedApiKey !== null) {
-    state.apiKey = savedApiKey;
+    state.apiKey = savedApiKey.trim();
   }
   if (savedVoice) {
     state.voiceName = savedVoice;
@@ -440,7 +440,7 @@ function closeModal(id) {
 function saveSettings() {
   const selectedCategories = Array.from(document.querySelectorAll('input[name="categories"]:checked')).map(cb => cb.value);
   const promptValue = document.getElementById('prompt-input').value;
-  const apiKeyValue = document.getElementById('api-key-input').value;
+  const apiKeyValue = document.getElementById('api-key-input').value.trim();
   const voiceValue = document.getElementById('voice-select').value;
   const speedValue = parseFloat(document.getElementById('speed-slider').value);
 
