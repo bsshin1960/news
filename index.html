@@ -274,13 +274,8 @@
             </div>
           </div>
 
-          <!-- 요구사항 입력 프롬프트 -->
-          <div class="form-group">
-            <label class="form-label" for="prompt-input">상세 뉴스 요구 사항 (AI 프롬프트)</label>
-            <textarea id="prompt-input" placeholder="예: '주요 뉴스 요약본만 간단하게 작성해줘', '기술 중심의 트렌드를 요약해주고, 전문 용어는 쉽게 풀어서 설명해줘'" rows="4"></textarea>
-          </div>
-
-          <!-- API 키 (숨김 - 내부 저장용) -->
+          <!-- 내부 저장용 (숨김) -->
+          <input type="hidden" id="prompt-input" value="">
           <input type="hidden" id="api-key-input" value="">
 
           <div class="divider"></div>

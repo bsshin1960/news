@@ -740,8 +740,9 @@ async function fetchGoogleRSSNews(category, count = 1) {
           }
         } catch (_) {}
 
-        // TTS 낭독용 자연스러운 본문 구성
-        const body = `${sourceName}에서 보도한 뉴스입니다. ${rawTitle.lastIndexOf(' - ') !== -1 ? rawTitle.substring(0, rawTitle.lastIndexOf(' - ')).trim() : rawTitle}. 더 자세한 내용은 출처 링크를 참고해 주세요.`;
+        // TTS 낭독용 자연스러운 본문 구성 (충분한 글자 수 확보)
+        const fullTitle = rawTitle.lastIndexOf(' - ') !== -1 ? rawTitle.substring(0, rawTitle.lastIndexOf(' - ')).trim() : rawTitle;
+        const body = `${category} 분야 최신 속보입니다. ${sourceName}에서 보도한 뉴스로, 기사 제목은 '${fullTitle}' 입니다. 이 기사는 ${category} 카테고리의 주요 이슈를 다루고 있으며, 관련 세부 내용과 배경 정보는 원문 기사에서 확인하실 수 있습니다. 더 자세한 보도 내용과 전체 본문은 하단의 뉴스 카드에 표시된 ${sourceName} 출처 링크를 터치하여 참고해 주시기 바랍니다.`;
 
         result.push({
           id: Date.now() + i,
