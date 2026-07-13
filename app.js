@@ -557,7 +557,14 @@ async function fetchNews() {
 
     renderNewsList(state.newsList);
     state.currentNewsIndex = -1;
-    updatePlayerStatus('낭독 대기 중', '뉴스 수집이 완료되었습니다. 재생 버튼을 누르세요.');
+    updatePlayerStatus('낭독 대기 중', '뉴스 수집이 완료되었습니다.');
+
+    // 뉴스 로드 완료 직후 자동 재생 트리거 시도
+    setTimeout(() => {
+      if (state.newsList.length > 0 && !state.isPlaying) {
+        togglePlayPause();
+      }
+    }, 600);
     
   } catch (error) {
     console.error('뉴스 가져오기 실패:', error);
