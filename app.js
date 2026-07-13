@@ -970,7 +970,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
   const currentDate = kstInfo.date;
 
   const promptText = options.fastFirst ? `
-    역할: 빠른 아침 뉴스 앵커
+    역할: 빠른 오늘의 뉴스 앵커
     현재 KST 시각은 [ ${currentLocalTimeStr} ], 오늘은 [ ${kstInfo.label} ] 입니다.
     google_search로 [ ${category} ] 분야의 최근 24시간 이내 실제 한국 뉴스 1건만 즉시 찾아 JSON 배열로 반환하세요.
     과거 학습 데이터, 가짜 기사, 언론사 메인 URL, 네이버/다음 홈 URL은 금지입니다.
@@ -979,7 +979,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
     출력은 설명 없이 아래 스키마의 JSON 배열만 허용합니다.
     [{"id":1,"category":"${category}","title":"15자 이내 제목","body":"뉴스 본문 4문장. 핵심 사실, 배경, 영향, 유의점을 포함","time":"${currentMonth}.${currentDate} 오전 08:00","source_name":"언론사명","source_url":"실제 상세 기사 URL"}]
   ` : `
-    역할: 전문 아침 뉴스 앵커 및 아나운서
+    역할: 전문 오늘의 뉴스 앵커 및 아나운서
     
     시간 및 검색 규정 (가장 엄격히 준수):
     현재 대한민국의 로컬 시각은 한국 표준시(KST) 기준 [ ${currentLocalTimeStr} ] 이며, 오늘은 [ ${kstInfo.label} ] 입니다.
@@ -1002,7 +1002,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
     3. 중복되는 번호나 분야 소개말은 완전히 배제하고 오직 팩트 위주의 본문 내용만 기입하십시오. 단순 요약 한두 문장으로 끝내지 말고, 문장마다 새로운 정보를 담아 상세도를 높이십시오.
     4. **제목("title")은 반드시 15자 이내의 짧은 한줄 요약 헤드라인으로 작성하십시오.** 예시: "코스피 7천선 돌파", "유가 급락 비상경영". 길고 장황한 제목은 절대 금지입니다.
 
-    이 설정에 맞춰서 신뢰성 높은 최신 아침 뉴스 브리핑 ${count}가지를 생성하고 JSON 배열 형식으로만 반환해줘.
+    이 설정에 맞춰서 신뢰성 높은 최신 오늘의 뉴스 브리핑 ${count}가지를 생성하고 JSON 배열 형식으로만 반환해줘.
     반드시 아래 JSON 스키마만 정확하게 준수하여 응답해줘. 설명 문구 없이 JSON 배열 텍스트만 출력해줘:
 
     [
@@ -1273,7 +1273,7 @@ function showNewsLoading() {
         최신 뉴스를 불러옵니다. 잠시만 기다려 주세요.
       </h3>
       <p style="font-size: 13px; color: var(--text-muted);">
-        실시간 구글 검색을 연동하여 정확한 팩트 기반의 맞춤 아침 뉴스를 정밀 요약 중입니다.
+        실시간 구글 검색을 연동하여 정확한 팩트 기반의 맞춤 오늘의 뉴스를 정밀 요약 중입니다.
       </p>
     </div>
     

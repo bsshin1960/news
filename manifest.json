@@ -1,6 +1,6 @@
 {
-  "name": "아침 뉴스 브리핑 & TTS 플레이어",
-  "short_name": "아침뉴스",
+  "name": "오늘의 뉴스 브리핑 & TTS 플레이어",
+  "short_name": "오늘의뉴스",
   "description": "매일 아침 주요 뉴스를 요약하여 전송하고 TTS 음성으로 읽어주는 모던 PWA 서비스",
   "start_url": "./index.html",
   "scope": "./",
