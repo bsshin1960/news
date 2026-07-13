@@ -568,10 +568,10 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     사용자가 선택한 관심 분야는 다음과 같습니다: [${categories.join(', ')}].
     사용자의 추가 요구사항: "${prompt || '바쁜 아침에 핵심만 쉽게 요약해줘.'}"
 
-    브리핑 본문 구성 규정 (필수):
-    각 분야(카테고리)별 뉴스는 관련 소식들을 모아서 자연스럽게 연결된 흐름으로 들려주어야 합니다.
-    예를 들어, 카테고리가 '증시' 또는 '경제'라면 본문(body)의 시작을 "[카테고리] 뉴스입니다."로 선언하고, 그 뒤에 뉴스 내용들을 "첫째, [내용]... 둘째, [내용]..."과 같이 논리적이고 순차적으로 연결하여 아나운서가 낭독하는 하나의 유기적인 스크립트로 작성해주세요.
-    (예시: "증시 뉴스입니다. 첫째, 오늘 코스피 지수는 전 거래일 대비 15포인트 상승하며 출발했습니다. 둘째, 원·달러 환율은 하락세를 나타내고 있습니다.")
+    텍스트 형식 규정 (극도로 중요):
+    1. 뉴스 본문("body")에는 절대로 "첫째", "둘째", "셋째", "넷째", "증시 뉴스입니다", "경제 소식입니다" 와 같은 인위적인 순서 표기 단어나 카테고리 머리말을 기재하지 마십시오.
+    2. 본문("body")은 뉴스 카드로 화면에 직접 렌더링되므로, 군더더기 단어 없이 아나운서가 부드럽게 읽을 수 있는 가장 세련되고 완성도 높은 한국어 줄글 문장(2~3문장 내외)으로만 채우십시오.
+    3. 중복되는 번호나 분야 소개말은 완전히 배제하고 오직 팩트 위주의 본문 내용만 기입하십시오.
 
     이 설정에 맞춰서 신뢰성 높은 최신 아침 뉴스 브리핑 5가지를 생성하고 JSON 배열 형식으로만 반환해줘.
     반드시 아래 JSON 스키마만 정확하게 준수하여 응답해줘. 설명 문구 없이 JSON 배열 텍스트만 출력해줘:
@@ -581,7 +581,7 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
         "id": 1,
         "category": "정치",
         "title": "뉴스 제목",
-        "body": "정치 뉴스입니다. 첫째, ... 둘째, ... 과 같이 연결하여 작성된 본문 내용",
+        "body": "화면에 직접 표기될 격식 있고 자연스러운 줄글 형태의 뉴스 내용 (첫째/둘째 등 기호 일절 없음)",
         "time": "오전 08:00"
       }
     ]
@@ -687,6 +687,27 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
   throw new Error(`모든 Gemini 모델 시도 실패. 마지막 오류: ${lastError}`);
 }
 
+// 뉴스 본문에서 "첫째, 둘째" 및 "[카테고리] 뉴스입니다" 같은 불필요한 단어를 정제하는 헬퍼 함수
+function cleanNewsBodyText(body, category) {
+  let cleaned = body;
+  
+  if (category) {
+    const categoryIntroRegex = new RegExp(`^${category}\\s*(뉴스|소식)입니다\\.?\\s*`, 'i');
+    cleaned = cleaned.replace(categoryIntroRegex, '');
+  }
+  
+  // 일반적인 "OO 뉴스/소식입니다" 제거
+  cleaned = cleaned.replace(/^[가-힣]{2,4}\s*(뉴스|소식)입니다\.?\s*/i, '');
+  
+  // 시작 부분의 첫째, 둘째 제거
+  cleaned = cleaned.replace(/^(첫째|둘째|셋째|넷째|다섯째),?\s*/g, '');
+  
+  // 문장 중간의 ". 둘째, " 등 제거
+  cleaned = cleaned.replace(/([.?!]\s+)(첫째|둘째|셋째|넷째|다섯째),?\s*/g, '$1');
+  
+  return cleaned.trim();
+}
+
 // 로딩 화면 그리기
 function showNewsLoading() {
   const grid = document.getElementById('news-grid');
@@ -748,7 +769,7 @@ function renderNewsList(list) {
           <span class="card-time">${news.time}</span>
         </div>
         <h2 class="card-title">${news.title}</h2>
-        <p class="card-body">${news.body}</p>
+        <p class="card-body">${cleanNewsBodyText(news.body, news.category)}</p>
       </div>
       <div class="card-footer">
         <button class="btn-card-listen" data-index="${index}">
@@ -821,13 +842,8 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
   // 직전 카드와 동일 카테고리 여부 검사
   const isSameCategory = index > 0 && state.newsList[index - 1].category === news.category;
   
-  // 본문 가공: "[카테고리] 뉴스/소식입니다. " 중복 인트로 제거 기믹
-  let processedBody = news.body;
-  if (isSameCategory) {
-    // 동일 카테고리 연속 시 "증시 뉴스입니다. ", "증시 소식입니다. " 문구를 정규식으로 안전하게 잘라냅니다.
-    const categoryIntroRegex = new RegExp(`^${news.category}\\s*(뉴스|소식)입니다\\.?\\s*`, 'i');
-    processedBody = processedBody.replace(categoryIntroRegex, '');
-  }
+  // 본문 가공: 텍스트 클리너를 적용하여 "첫째, 둘째, 증시 뉴스입니다" 등 군더더기 전면 삭제
+  let processedBody = cleanNewsBodyText(news.body, news.category);
 
   // 1. 카테고리가 최초로 시작할 때만 카테고리 정보 안내
   if (!isSameCategory) {
