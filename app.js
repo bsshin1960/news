@@ -1141,15 +1141,6 @@ function appendNewsCard(news, index) {
         </div>
       </div>
       <p class="card-body" style="margin-bottom: 0;">${cleanNewsBodyText(news.body, news.category)}</p>
-      ${news.source_name && news.source_url ? `
-        <div class="card-source" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--glass-border); font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
-          <i class="fa-solid fa-link" style="font-size: 10px; opacity: 0.7;"></i>
-          <span>출처:</span>
-          <a href="${news.source_url}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none; font-weight: 600; transition: color 0.2s;" onmouseover="this.style.color='var(--primary-hover)'; this.style.textDecoration='underline'" onmouseout="this.style.color='var(--primary)'; this.style.textDecoration='none'">
-            ${news.source_name}
-          </a>
-        </div>
-      ` : ''}
     </div>
   `;
   grid.appendChild(card);
