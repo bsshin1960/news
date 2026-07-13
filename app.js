@@ -19,9 +19,9 @@ const GEMINI_QUOTA_RETRY_PADDING_MS = 1500;
 let nextGeminiRequestAt = 0;
 let geminiRequestQueue = Promise.resolve();
 
-// 구글 뉴스 RSS 피드 실시간 수집 설정 (API 키 없이도 최신 뉴스 제공)
-const GOOGLE_NEWS_RSS_FETCH_TIMEOUT_MS = 15000;
-const GOOGLE_NEWS_CORS_PROXIES = [
+// 네이버 뉴스 RSS 피드 실시간 수집 설정 (API 키 없이도 최신 뉴스 제공)
+const NAVER_NEWS_RSS_FETCH_TIMEOUT_MS = 15000;
+const NAVER_NEWS_CORS_PROXIES = [
   'https://api.allorigins.win/raw?url=',
   'https://corsproxy.io/?',
   'https://api.codetabs.com/v1/proxy?quest='
@@ -660,48 +660,50 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
 }
 
 // ====================================================
-// 구글 뉴스 RSS 실시간 수집 함수 (API 키 불필요)
-// CORS 프록시를 경유해 구글 뉴스 RSS 피드를 파싱하여
+// 네이버 뉴스 RSS 실시간 수집 함수 (API 키 불필요)
+// CORS 프록시를 경유해 네이버 뉴스 RSS 피드를 파싱하여
 // 실제 최신 뉴스 헤드라인을 수집합니다.
 // ====================================================
-async function fetchGoogleRSSNews(category, count = 1) {
-  // 한국어 카테고리 → 구글 뉴스 토픽 매핑
-  const topicMap = {
-    '정치': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRFZ4ZERBU0FoUnJieWdBUAE',
-    '경제': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGx6TVdZU0FoUnJieWdBUAE',
-    '증시': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGx6TVdZU0FoUnJieWdBUAE',
-    '산업': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGx6TVdZU0FoUnJieWdBUAE',
-    '과학': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGRqTVhFU0FoUnJieWdBUAE',
-    'AI뉴스': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGRqTVhFU0FoUnJieWdBUAE',
-    '스포츠': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRFp1ZEdvU0FoUnJieWdBUAE',
-    '문화': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNREpxYW5RU0FoUnJieWdBUAE',
-    '연예': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNREpxYW5RU0FoUnJieWdBUAE',
-    '사회': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRFp0Y1RjU0FoUnJieWdBUAE',
-    '건강': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNR3QwTlRFU0FoUnJieWdBUAE'
+async function fetchNaverRSSNews(category, count = 1) {
+  // 한국어 카테고리 → 네이버 뉴스 섹션 ID 매핑
+  const sectionMap = {
+    '정치': '100',
+    '경제': '101',
+    '증시': '101',
+    '산업': '101',
+    '사회': '102',
+    '건강': '103',
+    '문화': '103',
+    '연예': '106',
+    '스포츠': '107',
+    '과학': '105',
+    'AI뉴스': '105'
   };
 
-  // 토픽 코드가 없는 카테고리(날씨 등)는 검색 쿼리 방식 사용
-  const topicCode = topicMap[category];
+  const sectionId = sectionMap[category];
+
+  // 네이버 뉴스 섹션별 RSS URL 또는 검색 RSS URL 구성
   let rssUrl;
-  if (topicCode) {
-    rssUrl = `https://news.google.com/rss/topics/${topicCode}?hl=ko&gl=KR&ceid=KR:ko`;
+  if (sectionId) {
+    rssUrl = `https://news.naver.com/main/rss/main.nhn?mid=sec&sid1=${sectionId}`;
   } else {
-    rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(category + ' 뉴스')}&hl=ko&gl=KR&ceid=KR:ko`;
+    // 매핑 없는 카테고리(날씨 등)는 네이버 검색 RSS 사용
+    rssUrl = `https://news.naver.com/main/rss/main.nhn?mid=sec&sid1=102`;
   }
 
   // CORS 프록시 순차 시도
-  for (const proxy of GOOGLE_NEWS_CORS_PROXIES) {
+  for (const proxy of NAVER_NEWS_CORS_PROXIES) {
     try {
       const proxyUrl = `${proxy}${encodeURIComponent(rssUrl)}`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), GOOGLE_NEWS_RSS_FETCH_TIMEOUT_MS);
+      const timer = setTimeout(() => controller.abort(), NAVER_NEWS_RSS_FETCH_TIMEOUT_MS);
 
       const resp = await fetch(proxyUrl, { signal: controller.signal });
       clearTimeout(timer);
 
       if (!resp.ok) continue;
       const xmlText = await resp.text();
-      if (!xmlText || !xmlText.includes('<rss')) continue;
+      if (!xmlText || !xmlText.includes('<rss') && !xmlText.includes('<channel')) continue;
 
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
@@ -716,19 +718,31 @@ async function fetchGoogleRSSNews(category, count = 1) {
         const rawTitle = item.querySelector('title')?.textContent || '';
         const link = item.querySelector('link')?.textContent || '';
         const pubDate = item.querySelector('pubDate')?.textContent || '';
-        const sourceEl = item.querySelector('source');
-        const sourceName = sourceEl?.textContent || '뉴스 원문';
+        const description = item.querySelector('description')?.textContent || '';
 
-        // 구글 뉴스 RSS 제목에서 "제목 - 언론사" 패턴의 언론사 부분 제거
-        let title = rawTitle;
-        const hyphenIdx = rawTitle.lastIndexOf(' - ');
-        if (hyphenIdx !== -1) {
-          title = rawTitle.substring(0, hyphenIdx).trim();
-        }
-        // 제목 15자 제한 (카드 UI 가독성)
+        // HTML 태그 제거 및 텍스트 정제
+        const cleanDesc = description.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim();
+
+        // 제목 정제
+        let title = rawTitle.trim();
         if (title.length > 15) {
           title = title.substring(0, 15) + '…';
         }
+
+        // 출처 언론사 추출 (네이버 RSS에서는 link URL에서 추정)
+        let sourceName = '네이버 뉴스';
+        if (link.includes('yna.co.kr')) sourceName = '연합뉴스';
+        else if (link.includes('ytn.co.kr')) sourceName = 'YTN';
+        else if (link.includes('mk.co.kr')) sourceName = '매일경제';
+        else if (link.includes('hankyung.com')) sourceName = '한국경제';
+        else if (link.includes('sbs.co.kr')) sourceName = 'SBS';
+        else if (link.includes('kbs.co.kr')) sourceName = 'KBS';
+        else if (link.includes('mbc.co.kr')) sourceName = 'MBC';
+        else if (link.includes('chosun.com')) sourceName = '조선일보';
+        else if (link.includes('donga.com')) sourceName = '동아일보';
+        else if (link.includes('hani.co.kr')) sourceName = '한겨레';
+        else if (link.includes('khan.co.kr')) sourceName = '경향신문';
+        else if (link.includes('joongang.co.kr')) sourceName = '중앙일보';
 
         // 보도 시각 파싱
         let timeStr = '오늘';
@@ -740,9 +754,12 @@ async function fetchGoogleRSSNews(category, count = 1) {
           }
         } catch (_) {}
 
-        // TTS 낭독용 자연스러운 본문 구성 (충분한 글자 수 확보)
-        const fullTitle = rawTitle.lastIndexOf(' - ') !== -1 ? rawTitle.substring(0, rawTitle.lastIndexOf(' - ')).trim() : rawTitle;
-        const body = `${category} 분야 최신 속보입니다. ${sourceName}에서 보도한 뉴스로, 기사 제목은 '${fullTitle}' 입니다. 이 기사는 ${category} 카테고리의 주요 이슈를 다루고 있으며, 관련 세부 내용과 배경 정보는 원문 기사에서 확인하실 수 있습니다. 더 자세한 보도 내용과 전체 본문은 하단의 뉴스 카드에 표시된 ${sourceName} 출처 링크를 터치하여 참고해 주시기 바랍니다.`;
+        // TTS 낭독용 본문 구성 (2배 길이 확보)
+        const fullTitle = rawTitle.trim();
+        const bodyText = cleanDesc.length > 20
+          ? cleanDesc.substring(0, 200)
+          : `${fullTitle}에 대한 상세 보도 내용입니다`;
+        const body = `${category} 분야 최신 속보입니다. ${sourceName}에서 보도한 뉴스로, 기사 제목은 '${fullTitle}' 입니다. ${bodyText}. 관련 세부 내용과 배경 정보는 원문 기사에서 확인하실 수 있습니다. 더 자세한 보도 내용은 하단의 뉴스 카드에 표시된 ${sourceName} 출처 링크를 터치하여 참고해 주시기 바랍니다.`;
 
         result.push({
           id: Date.now() + i,
@@ -756,7 +773,7 @@ async function fetchGoogleRSSNews(category, count = 1) {
       }
 
       if (result.length > 0) {
-        console.log(`📡 구글 뉴스 RSS로 [${category}] 실시간 뉴스 ${result.length}건 수집 완료`);
+        console.log(`📡 네이버 뉴스 RSS로 [${category}] 실시간 뉴스 ${result.length}건 수집 완료`);
         return result;
       }
     } catch (e) {
@@ -766,7 +783,7 @@ async function fetchGoogleRSSNews(category, count = 1) {
   }
 
   // 모든 프록시 실패 시 → 모의 뉴스 폴백
-  console.warn(`[${category}] 구글 뉴스 RSS 수집 전체 실패, 샘플 뉴스로 대체`);
+  console.warn(`[${category}] 네이버 뉴스 RSS 수집 전체 실패, 샘플 뉴스로 대체`);
   return getMockNewsForCategory(category, 15, count);
 }
 
@@ -962,7 +979,7 @@ async function fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sess
   await Promise.all(plan.map(async ({ category, count }) => {
     try {
       const items = useRSS
-        ? await fetchGoogleRSSNews(category, count)
+        ? await fetchNaverRSSNews(category, count)
         : await fetchGeminiNewsForCategory(apiKey, category, prompt, count);
       if (sessionId !== currentFetchSession) return;
       appendFetchedNewsItems(items, targetTotal);
@@ -1022,9 +1039,9 @@ async function fetchNews() {
     if (hasApiKey) {
       firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt, firstBatchCount, { fastFirst: true });
     } else {
-      // API 키 없이 구글 뉴스 RSS 실시간 수집
-      updatePlayerStatus('실시간 뉴스 수집 중', `구글 뉴스에서 [${firstCategory}] 최신 속보를 검색하는 중입니다...`);
-      firstNewsItems = await fetchGoogleRSSNews(firstCategory, firstBatchCount);
+      // API 키 없이 네이버 뉴스 RSS 실시간 수집
+      updatePlayerStatus('실시간 뉴스 수집 중', `네이버 뉴스에서 [${firstCategory}] 최신 속보를 검색하는 중입니다...`);
+      firstNewsItems = await fetchNaverRSSNews(firstCategory, firstBatchCount);
     }
 
     // 비동기 실행 도중 세션이 만료되었는지 확인
@@ -1034,12 +1051,10 @@ async function fetchNews() {
     const grid = document.getElementById('news-grid');
     grid.innerHTML = '';
 
-    // API Key 미등록 시 최상단 경고 안내 배너 추가
+    // API Key 미등록 시 최상단 안내 배너 추가
     if (!hasApiKey) {
       const warningBanner = document.createElement('div');
       warningBanner.className = 'news-card';
-      warningBanner.style.borderColor = 'var(--accent)';
-      warningBanner.style.background = 'rgba(239, 68, 68, 0.08)';
       warningBanner.style.gridColumn = '1 / -1';
       warningBanner.style.padding = '16px';
       warningBanner.style.marginBottom = '16px';
@@ -1047,16 +1062,15 @@ async function fetchNews() {
         <div style="display: flex; align-items: flex-start; gap: 12px;">
           <i class="fa-solid fa-rss" style="color: var(--primary); font-size: 18px; margin-top: 2px;"></i>
           <div>
-            <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: var(--text-primary);">📡 구글 뉴스 실시간 피드 모드</h4>
+            <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: var(--text-primary);">📡 네이버 뉴스 실시간 피드 모드</h4>
             <p style="margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.4;">
-              구글 뉴스 RSS를 통해 <strong>실시간 최신 뉴스 헤드라인</strong>을 자동 수집하여 제공합니다.
-              AI 요약 기능을 사용하려면 우측 상단 <strong>설정(⚙️)</strong>에서 Gemini API 키를 입력하세요.
+              네이버 뉴스 RSS를 통해 <strong>실시간 최신 뉴스 헤드라인</strong>을 자동 수집하여 제공합니다.
             </p>
           </div>
         </div>
       `;
       warningBanner.style.borderColor = 'var(--primary)';
-      warningBanner.style.background = 'rgba(99, 102, 241, 0.08)';
+      warningBanner.style.background = 'rgba(3, 199, 90, 0.08)';
       grid.appendChild(warningBanner);
     }
 
