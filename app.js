@@ -148,6 +148,12 @@ function initVoices() {
       const aName = a.name.toLowerCase();
       const bName = b.name.toLowerCase();
       
+      // 0순위: 선희 (SunHi) 신경망 보이스 최우선 배치 (사용자 최적 기본값 요청)
+      const aHasSunHi = aName.includes('선희') || aName.includes('sunhi');
+      const bHasSunHi = bName.includes('선희') || bName.includes('sunhi');
+      if (aHasSunHi && !bHasSunHi) return -1;
+      if (!aHasSunHi && bHasSunHi) return 1;
+
       // 1순위: Edge 내장 Neural / Natural (인간 수준의 자연스러운 음성)
       const aHasNatural = aName.includes('natural') || aName.includes('neural') || aName.includes('네추럴');
       const bHasNatural = bName.includes('natural') || bName.includes('neural') || bName.includes('네추럴');
@@ -184,17 +190,20 @@ function initVoices() {
       playerSelect.appendChild(option.cloneNode(true)); // 플레이어 퀵 설정에도 동시 주입
     });
 
-    // 기본 목소리 미설정 시 최적의(가장 위에 정렬된) 목소리로 설정
+    // 기본 목소리 설정 및 자동 마이그레이션 (선희 음성 탐지 시 강제 적용)
     const savedVoice = localStorage.getItem('news_voice');
-    if (!savedVoice && targetVoices.length > 0) {
+    const sunhiVoice = targetVoices.find(v => v.name.toLowerCase().includes('선희') || v.name.toLowerCase().includes('sunhi'));
+    
+    if (sunhiVoice && (!savedVoice || (!savedVoice.toLowerCase().includes('선희') && !savedVoice.toLowerCase().includes('sunhi')))) {
+      state.voiceName = sunhiVoice.name;
+      localStorage.setItem('news_voice', sunhiVoice.name);
+      select.value = sunhiVoice.name;
+      playerSelect.value = sunhiVoice.name;
+    } else if (!savedVoice && targetVoices.length > 0) {
       state.voiceName = targetVoices[0].name;
       localStorage.setItem('news_voice', state.voiceName);
-      if (select.options.length > 0) {
-        select.options[0].selected = true;
-      }
-      if (playerSelect.options.length > 0) {
-        playerSelect.options[0].selected = true;
-      }
+      select.value = state.voiceName;
+      playerSelect.value = state.voiceName;
     } else if (savedVoice) {
       select.value = savedVoice;
       playerSelect.value = savedVoice;
