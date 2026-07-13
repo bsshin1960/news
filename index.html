@@ -278,15 +278,10 @@
           <div class="form-group">
             <label class="form-label" for="prompt-input">상세 뉴스 요구 사항 (AI 프롬프트)</label>
             <textarea id="prompt-input" placeholder="예: '주요 뉴스 요약본만 간단하게 작성해줘', '기술 중심의 트렌드를 요약해주고, 전문 용어는 쉽게 풀어서 설명해줘'" rows="4"></textarea>
-            <small class="form-help">선택한 관심 분야의 뉴스를 수집하고 필터링/요약할 때 반영되는 맞춤 요구사항입니다.</small>
           </div>
 
-          <!-- AI API 설정 (실제 동작을 위한 확장성 제공) -->
-          <div class="form-group">
-            <label class="form-label" for="api-key-input">Gemini API Key (선택 사항)</label>
-            <input type="password" id="api-key-input" placeholder="AI 실시간 요약을 활성화하려면 Gemini API Key를 입력하세요.">
-            <small class="form-help">입력하지 않을 경우, 사전 정의된 최신 맞춤형 모의 뉴스 데이터로 동작합니다. 키는 브라우저 로컬 저장소에 안전하게 저장됩니다.</small>
-          </div>
+          <!-- API 키 (숨김 - 내부 저장용) -->
+          <input type="hidden" id="api-key-input" value="">
 
           <div class="divider"></div>
 
