@@ -568,8 +568,8 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     사용자가 선택한 관심 분야는 다음과 같습니다: [${categories.join(', ')}].
     사용자의 추가 요구사항: "${prompt || '바쁜 아침에 핵심만 쉽게 요약해줘.'}"
 
-    이 설정에 맞춰서 가상 또는 가공된 신뢰성 높은 최신 아침 뉴스 브리핑 5가지를 생성하고 JSON 배열 형식으로만 반환해줘.
-    JSON 형식은 정확하게 다음 스키마를 만족해야 해.
+    이 설정에 맞춰서 신뢰성 높은 최신 아침 뉴스 브리핑 5가지를 생성하고 JSON 배열 형식으로만 반환해줘.
+    반드시 아래 JSON 스키마만 정확하게 준수하여 응답해줘. 설명 문구 없이 JSON 배열 텍스트만 출력해줘:
 
     [
       {
@@ -582,67 +582,91 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     ]
   `;
 
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  
-  let response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: promptText }]
-        }]
-      })
-    });
-  } catch (netErr) {
-    throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
-  }
+  // 현재 시점에서 지원되는 모델 목록 (우선순위 순)
+  const MODEL_CANDIDATES = [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash-latest',
+    'gemini-pro'
+  ];
 
-  if (!response.ok) {
-    let errDetail = 'API 호출 실패';
-    try {
-      const errJson = await response.json();
-      if (errJson.error && errJson.error.message) {
-        errDetail = errJson.error.message;
+  // API 버전도 v1beta와 v1 두 가지를 폴백으로 시도
+  const API_VERSIONS = ['v1beta', 'v1'];
+
+  let lastError = '지원되는 Gemini 모델을 찾지 못했습니다.';
+
+  for (const version of API_VERSIONS) {
+    for (const model of MODEL_CANDIDATES) {
+      const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
+      
+      let response;
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }]
+          })
+        });
+      } catch (netErr) {
+        throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
       }
-    } catch (_) {}
-    throw new Error(`구글 API 오류: ${errDetail}`);
+
+      if (!response.ok) {
+        let errMsg = '';
+        try {
+          const errJson = await response.json();
+          if (errJson.error && errJson.error.message) {
+            errMsg = errJson.error.message;
+          }
+        } catch (_) {}
+
+        // 모델이 없는 경우(404) 다음 모델로 폴백
+        if (response.status === 404 || (errMsg && errMsg.includes('not found'))) {
+          lastError = `[${version}/${model}] ${errMsg}`;
+          console.warn(`모델 ${version}/${model} 미지원, 다음 모델로 폴백...`);
+          continue;
+        }
+
+        // 키 오류(401, 403) 등 다른 오류는 즉시 throw
+        throw new Error(`구글 API 오류 (${version}/${model}): ${errMsg || response.statusText}`);
+      }
+
+      // 성공한 경우 파싱 진행
+      const data = await response.json();
+      
+      if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
+        lastError = `모델 ${model}: 유효한 응답 없음`;
+        continue;
+      }
+
+      const rawText = data.candidates[0].content.parts[0].text.trim();
+      
+      let jsonString = rawText;
+      const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
+      const match = jsonString.match(jsonBlockRegex);
+      if (match) jsonString = match[1].trim();
+      
+      const arrayRegex = /\[\s*\{[\s\S]*\}\s*\]/;
+      const arrayMatch = jsonString.match(arrayRegex);
+      if (arrayMatch) jsonString = arrayMatch[0].trim();
+
+      try {
+        const result = JSON.parse(jsonString);
+        console.log(`✅ 성공: ${version}/${model} 모델로 뉴스 수신 완료`);
+        return result;
+      } catch (parseErr) {
+        console.error(`파싱 실패 (${model}):`, rawText);
+        lastError = `JSON 파싱 실패 (${model})`;
+        continue;
+      }
+    }
   }
 
-  const data = await response.json();
-  
-  if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
-    throw new Error('AI 응답 생성 실패: 유효한 응답을 생성하지 못했습니다.');
-  }
-
-  const rawText = data.candidates[0].content.parts[0].text.trim();
-  
-  // 백엔드 명세 오류를 회피하기 위해 정밀 정규식 파서 탑재
-  let jsonString = rawText;
-  
-  // 1단계: 마크다운 JSON 블록 제거
-  const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
-  const match = jsonString.match(jsonBlockRegex);
-  if (match) {
-    jsonString = match[1].trim();
-  }
-  
-  // 2단계: 순수 JSON 배열만 추출
-  const arrayRegex = /\[\s*\{[\s\S]*\}\s*\]/;
-  const arrayMatch = jsonString.match(arrayRegex);
-  if (arrayMatch) {
-    jsonString = arrayMatch[0].trim();
-  }
-
-  try {
-    return JSON.parse(jsonString);
-  } catch (parseErr) {
-    console.error('JSON 파싱 실패 원본 데이터:', rawText);
-    throw new Error('AI 뉴스 데이터 파싱 실패: 생성된 데이터의 JSON 형식이 올바르지 않습니다.');
-  }
+  // 모든 모델 폴백 실패
+  throw new Error(`모든 Gemini 모델 시도 실패. 마지막 오류: ${lastError}`);
 }
 
 // 로딩 화면 그리기
