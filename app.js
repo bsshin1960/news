@@ -24,63 +24,81 @@ const MOCK_NEWS_TEMPLATES = [
     category: '정치',
     title: '정부, 저출생 극복을 위한 주거 및 양육 특별대책 발표',
     body: '정부가 저출생 위기 극복을 위해 신혼부부 및 다자녀 가구를 대상으로 주택 청약 기준을 대폭 완화하고, 영유아 수당 지급 기간을 확대하는 특별 정책을 발표했습니다. 이번 정책은 실질적인 가구 부담 경감을 목표로 하고 있습니다.',
-    time: '오전 07:15'
+    time: '오전 07:15',
+    source_name: '연합뉴스',
+    source_url: 'https://www.yna.co.kr'
   },
   {
     id: 2,
     category: '경제',
     title: '글로벌 유가 하락 압력 속 국내 정유업계 수익성 방어 비상',
     body: '글로벌 수요 둔화 우려로 원유 가격이 배럴당 70달러선 아래로 떨어지면서 국내 정유 및 화학 대기업들이 긴급 비상 경영 회의를 소집했습니다. 환율 변동과 결합되어 하반기 마진 확보에 빨간불이 켜진 상황입니다.',
-    time: '오전 07:30'
+    time: '오전 07:30',
+    source_name: '매일경제',
+    source_url: 'https://www.mk.co.kr'
   },
   {
     id: 3,
     category: '증시',
     title: '코스피, 반도체 및 초지능 부문 초강세로 사상 최초 7,000선 돌파 및 안착',
     body: '글로벌 초전도 반도체와 지능형 AI 로봇 수주 랠리에 힘입어 코스피 지수가 역사상 처음으로 7,000선을 가뿐히 돌파했습니다. 외국인과 기관의 폭발적인 매수세 속에 증시는 연일 사상 최고치 신기록을 경신하고 있습니다.',
-    time: '오전 08:00'
+    time: '오전 08:00',
+    source_name: '한국경제',
+    source_url: 'https://www.hankyung.com'
   },
   {
     id: 4,
     category: '과학',
     title: '한국 연구진, 차세대 초전도체 후보 물질 발견해 학계 이목 집중',
     body: '국내 대학 연구소와 국책 연구기관 공동 연구팀이 상온 극저온 경계 영역에서 강한 반자성 효과를 보이는 신소재 합성 기술을 개발했습니다. 권위 있는 과학 저널 네이처에 게재 검토 중이며 향후 에너지 송전 혁신이 기대됩니다.',
-    time: '오전 08:10'
+    time: '오전 08:10',
+    source_name: '동아사이언스',
+    source_url: 'https://www.dongascience.com'
   },
   {
     id: 5,
     category: '날씨',
     title: '기상청, 오늘 밤부터 전국 강풍 동반한 기습 폭설 및 한파 주의보령 발령',
     body: '기상청은 오늘 자정부터 중부 지방을 중심으로 순간 시속 70킬로미터 이상의 돌풍과 함께 최대 15센티미터 이상의 폭설이 내릴 것으로 예보했습니다. 내일 출근길 전국적인 빙판길 교통안전과 대중교통 이용을 신신당부했습니다.',
-    time: '오전 08:15'
+    time: '오전 08:15',
+    source_name: '기상청 날씨누리',
+    source_url: 'https://www.weather.go.kr'
   },
   {
     id: 6,
     category: '사회',
     title: '경찰청, 지능형 보이스피싱 금융 범죄 차단을 위한 AI 실시간 탐지 기법 전격 도입',
     body: '경찰청은 시중 은행과 손잡고 통화 중 보이스피싱 의심 키워드와 목소리 톤의 이상 징후를 실시간 감지하여 즉시 이체를 차단하는 차세대 AI 차단 시스템을 전국 지점에 시범 적용한다고 밝혔습니다.',
-    time: '오전 08:20'
+    time: '오전 08:20',
+    source_name: 'YTN',
+    source_url: 'https://www.ytn.co.kr'
   },
   {
     id: 7,
     category: '스포츠',
     title: '한국 골프 대표팀, 세계 주니어 선수권에서 극적인 대역전 우승 쾌거',
     body: '한국 청소년 골프 국가대표팀이 마지막 라운드에서 침착한 버디 퍼팅 랠리를 보이며 강력한 경쟁 후보인 미국과 일본을 2타 차로 따돌리고 사상 최초 종합 단체전 금메달을 목에 걸었습니다.',
-    time: '오전 08:30'
+    time: '오전 08:30',
+    source_name: 'SBS 스포츠',
+    source_url: 'https://sports.sbs.co.kr'
   },
   {
     id: 8,
     category: '문화',
     title: '국립 미술관, 초실감 VR 기술 활용한 가상 고궁 유물 특별 기획전 개최',
     body: '문화재청과 미술관은 최첨단 레이저 스캐닝 가상현실 렌더러 기술을 활용해 조선 시대 궁궐 내부의 왕실 생활 유물을 오감으로 실감 나게 탐험할 수 있는 신규 디지털 헤리티지 전시회를 일반에 무료 개방했습니다.',
-    time: '오전 08:40'
+    time: '오전 08:40',
+    source_name: '문화일보',
+    source_url: 'https://www.munhwa.com'
   },
   {
     id: 9,
     category: 'AI뉴스',
     title: '국내 AI 연구소, 인간의 복합적 감정을 이해하는 감성 대화 지능 상용화 성공',
     body: '국내 연구진이 멀티모달 인식 알고리즘을 고도화하여 사용자의 미세한 얼굴 근육 떨림과 음성 파장을 실시간 판별하고, 그에 맞는 맞춤형 정서적 공감 대화를 주고받을 수 있는 지능형 반려 로봇 상용화 시스템을 성공적으로 발표했습니다.',
-    time: '오전 08:50'
+    time: '오전 08:50',
+    source_name: '지디넷코리아',
+    source_url: 'https://zdnet.co.kr'
   }
 ];
 
@@ -699,6 +717,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt) {
     1. 반드시 google_search 도구(실시간 인터넷 검색)를 활용하여, 현재 시각 기준 **최근 24시간 이내**에 대한민국 메이저 언론사 등에 실제 보도된 실시간 최신 뉴스 및 사건들만 검색하여 요약 기재해야 합니다.
     2. 과거에 학습한 옛날 데이터나 가공의 기사를 들려주어서는 절대로 안 됩니다. 무조건 24시간 이내의 실시간 팩트 정보만 취급하세요.
     3. 수집된 최신 뉴스의 정확한 보도 시각을 바탕으로 JSON의 "time" 필드를 채우십시오.
+    4. **검색한 원본 뉴스 기사의 정확한 출처 언론사명(예: 연합뉴스, YTN 등)과 실제 보도 링크 URL을 알아내어 각각 "source_name" 및 "source_url" 필드에 정확히 기재하십시오.**
 
     요청사항: 
     사용자가 선택한 관심 분야는 [ ${category} ] 입니다.
@@ -718,7 +737,9 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt) {
         "category": "${category}",
         "title": "뉴스 제목",
         "body": "화면에 직접 표기될 격식 있고 자연스러운 줄글 형태의 뉴스 내용 (첫째/둘째 등 기호 일절 없음)",
-        "time": "${currentMonth}.${currentDate} 오전 08:00"
+        "time": "${currentMonth}.${currentDate} 오전 08:00",
+        "source_name": "연합뉴스",
+        "source_url": "https://www.yna.co.kr/view/AKR2023..."
       }
     ]
   `;
@@ -971,6 +992,15 @@ function appendNewsCard(news, index) {
         </div>
       </div>
       <p class="card-body" style="margin-bottom: 0;">${cleanNewsBodyText(news.body, news.category)}</p>
+      ${news.source_name && news.source_url ? `
+        <div class="card-source" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--glass-border); font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+          <i class="fa-solid fa-link" style="font-size: 10px; opacity: 0.7;"></i>
+          <span>출처:</span>
+          <a href="${news.source_url}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none; font-weight: 600; transition: color 0.2s;" onmouseover="this.style.color='var(--primary-hover)'; this.style.textDecoration='underline'" onmouseout="this.style.color='var(--primary)'; this.style.textDecoration='none'">
+            ${news.source_name}
+          </a>
+        </div>
+      ` : ''}
     </div>
   `;
   grid.appendChild(card);
