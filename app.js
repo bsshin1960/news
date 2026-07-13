@@ -599,18 +599,18 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     ]
   `;
 
-  // 무료 티어(Free Tier)가 있는 모델을 최우선 배치
-  // gemini-2.5-pro 등 유료 전용 모델은 목록에서 제외
+  // 2026년 7월 기준 최신 Gemini 모델 목록 (무료 티어 우선 배치)
   const MODEL_CANDIDATES = [
+    'gemini-2.5-flash',
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-1.5-flash-latest',
     'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-pro',
     'gemini-pro'
   ];
 
-  // API 버전도 v1beta와 v1 두 가지를 폴백으로 시도
+  // v1beta를 우선 시도 (실시간 검색 그라운딩 지원), 실패 시 v1 안정 버전으로 폴백
   const API_VERSIONS = ['v1beta', 'v1'];
 
   let lastError = '지원되는 Gemini 모델을 찾지 못했습니다.';
@@ -648,13 +648,17 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
           }
         } catch (_) {}
 
-        // 404(모델 없음) 또는 429(쿼터 초과/무료티어 불가) → 다음 모델로 폴백
+        // 404(모델 없음), 429(쿼터 초과), 400(지원하지 않는 파라미터) → 다음 모델로 폴백
         if (
+          response.status === 400 ||
           response.status === 404 ||
           response.status === 429 ||
           (errMsg && errMsg.includes('not found')) ||
+          (errMsg && errMsg.includes('not supported')) ||
           (errMsg && errMsg.includes('quota')) ||
-          (errMsg && errMsg.includes('RESOURCE_EXHAUSTED'))
+          (errMsg && errMsg.includes('RESOURCE_EXHAUSTED')) ||
+          (errMsg && errMsg.includes('Unknown name')) ||
+          (errMsg && errMsg.includes('Invalid'))
         ) {
           lastError = `[${version}/${model}] ${errMsg}`;
           console.warn(`모델 ${version}/${model} 사용 불가(${response.status}), 다음 모델로 폴백...`);
@@ -666,8 +670,10 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
           throw new Error(`API 키 오류: API 키가 유효하지 않거나 권한이 없습니다. 구글 AI Studio에서 키를 재발급 받으세요.`);
         }
 
-        // 기타 오류
-        throw new Error(`구글 API 오류 (${version}/${model}): ${errMsg || response.statusText}`);
+        // 기타 오류도 다음 모델로 폴백 시도
+        lastError = `[${version}/${model}] ${errMsg || response.statusText}`;
+        console.warn(`모델 ${version}/${model} 기타 오류(${response.status}), 다음 모델로 폴백...`);
+        continue;
       }
 
       // 성공한 경우 파싱 진행
