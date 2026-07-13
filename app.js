@@ -914,9 +914,29 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt) {
     if (arrayMatch) jsonString = arrayMatch[0].trim();
 
     try {
-      const result = JSON.parse(jsonString);
+      let result = JSON.parse(jsonString);
       console.log(`✅ 성공: ${version}/${model} 모델로 [${category}] 뉴스 수신 완료`);
-      return result;
+      
+      // 단일 객체인 경우 배열화
+      if (!Array.isArray(result)) {
+        result = [result];
+      }
+
+      // 출처 정보 필드명 강제 보정 및 안전화 조치 (품질 강화)
+      return result.map(item => {
+        const sourceName = item.source_name || item.sourceName || item.source || item.origin || '';
+        const sourceUrl = item.source_url || item.sourceUrl || item.url || item.link || '';
+
+        return {
+          id: item.id || 1,
+          category: item.category || category,
+          title: item.title || '최신 속보 브리핑',
+          body: item.body || '',
+          time: item.time || `${currentMonth}.${currentDate} 오전 08:00`,
+          source_name: sourceName.trim(),
+          source_url: sourceUrl.trim()
+        };
+      });
     } catch (parseErr) {
       console.error(`파싱 실패 (${model}):`, rawText);
       lastError = `JSON 파싱 실패 (${model})`;
