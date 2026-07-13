@@ -754,12 +754,24 @@ async function fetchNaverRSSNews(category, count = 1) {
           }
         } catch (_) {}
 
-        // TTS 낭독용 본문 구성 (2배 길이 확보)
+        // TTS 낭독용 본문 구성 (총 200자 내외)
         const fullTitle = rawTitle.trim();
-        const bodyText = cleanDesc.length > 20
-          ? cleanDesc.substring(0, 200)
-          : `${fullTitle}에 대한 상세 보도 내용입니다`;
-        const body = `${category} 분야 최신 속보입니다. ${sourceName}에서 보도한 뉴스로, 기사 제목은 '${fullTitle}' 입니다. ${bodyText}. 관련 세부 내용과 배경 정보는 원문 기사에서 확인하실 수 있습니다. 더 자세한 보도 내용은 하단의 뉴스 카드에 표시된 ${sourceName} 출처 링크를 터치하여 참고해 주시기 바랍니다.`;
+        let bodyText = '';
+        if (cleanDesc.length > 30) {
+          // 네이버 RSS description에서 최대 300자까지 활용
+          bodyText = cleanDesc.substring(0, 300);
+          // 문장 단위로 깔끔하게 자르기
+          const lastPeriod = bodyText.lastIndexOf('.');
+          const lastExcl = bodyText.lastIndexOf('!');
+          const lastQ = bodyText.lastIndexOf('?');
+          const cutPoint = Math.max(lastPeriod, lastExcl, lastQ);
+          if (cutPoint > 50) {
+            bodyText = bodyText.substring(0, cutPoint + 1);
+          }
+        } else {
+          bodyText = `${fullTitle}. 이 기사는 ${category} 분야의 주요 이슈를 다루고 있으며, 관련 세부 내용과 배경 정보는 원문 기사에서 확인하실 수 있습니다.`;
+        }
+        const body = `${category} 분야 최신 뉴스입니다. ${sourceName} 보도. ${bodyText} 자세한 내용은 ${sourceName} 원문 링크를 참고하세요.`;
 
         result.push({
           id: Date.now() + i,
