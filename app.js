@@ -557,7 +557,7 @@ function saveSettings() {
 // 4. 뉴스 데이터 처리 및 가져오기 로직
 // ====================================================
 // 카테고리 매칭 모의 뉴스를 포맷에 맞춰 반환하는 헬퍼 함수
-function getMockNewsForCategory(category, minusMinutes) {
+function getMockNewsForCategory(category, minusMinutes, count = 1) {
   let templates = MOCK_NEWS_TEMPLATES.filter(item => item.category === category);
   if (templates.length === 0) {
     templates = [MOCK_NEWS_TEMPLATES[0]]; // 폴백
@@ -565,20 +565,30 @@ function getMockNewsForCategory(category, minusMinutes) {
   
   const promptStyle = state.prompt.toLowerCase();
   const now = new Date();
-  const target = new Date(now.getTime() - minusMinutes * 60 * 1000);
-  const month = String(target.getMonth() + 1).padStart(2, '0');
-  const date = String(target.getDate()).padStart(2, '0');
-  const hours = target.getHours();
-  const minutes = target.getMinutes();
-  const ampm = hours >= 12 ? '오후' : '오전';
-  const displayHours = hours % 12 || 12;
-  const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
-  const formattedTime = `${month}.${date} ${ampm} ${displayHours}:${displayMinutes}`;
   
-  return templates.map(item => {
+  let results = [];
+  // 요청된 count 개수만큼 (템플릿이 부족하면 회전 복제) 생성
+  for (let i = 0; i < count; i++) {
+    const item = templates[i % templates.length];
+    // 기사마다 분 단위 시차를 조금씩 주어 차별화
+    const target = new Date(now.getTime() - (minusMinutes + i * 20) * 60 * 1000);
+    const month = String(target.getMonth() + 1).padStart(2, '0');
+    const date = String(target.getDate()).padStart(2, '0');
+    const hours = target.getHours();
+    const minutes = target.getMinutes();
+    const ampm = hours >= 12 ? '오후' : '오전';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+    const formattedTime = `${month}.${date} ${ampm} ${displayHours}:${displayMinutes}`;
+
     let modifiedBody = item.body;
     let modifiedTitle = item.title;
     
+    // 복수 기사 구분을 위해 타이틀 뒤에 순번 꼬리표 추가 (count > 1 일 때만)
+    if (count > 1) {
+      modifiedTitle = `${modifiedTitle} (${i + 1})`;
+    }
+
     if (promptStyle.includes('간단') || promptStyle.includes('요약')) {
       modifiedBody = modifiedBody.split(' ').slice(0, 15).join(' ') + '... (간단 요약 완료)';
     } else if (promptStyle.includes('격려') || promptStyle.includes('희망')) {
@@ -586,14 +596,17 @@ function getMockNewsForCategory(category, minusMinutes) {
     } else if (promptStyle.includes('쉬운') || promptStyle.includes('초등')) {
       modifiedBody = '🤖 [쉽게 읽기] ' + modifiedBody.replace('경감', '줄임').replace('합성', '만들기').replace('경신', '뛰어넘음');
     }
-    
-    return {
+
+    results.push({
       ...item,
+      id: item.id * 100 + i, // 고유 ID 충돌 방지
       title: modifiedTitle,
       body: modifiedBody,
       time: formattedTime
-    };
-  });
+    });
+  }
+  
+  return results;
 }
 
 async function fetchNews() {
@@ -615,6 +628,17 @@ async function fetchNews() {
     return;
   }
 
+  // 사용자가 프롬프트 추가 요구사항에 입력한 뉴스의 개수를 분석 (예: "10개", "10가지" 등)
+  let requestedTotal = 5; // 기본 권장 총 기사 개수
+  const promptStyle = state.prompt.toLowerCase().trim();
+  const numMatch = promptStyle.match(/(\d+)\s*(개|가지|항목|뉴스|소식|개씩)/);
+  if (numMatch) {
+    requestedTotal = parseInt(numMatch[1]);
+  }
+  // 각 카테고리별 요청 개수 동적 배분 (카테고리가 1개일 때 10개를 요청하면 10개 생성 시도)
+  // 단, API 무료 쿼터 및 쾌속 수집을 위해 단일 카테고리당 최대 5개로 하방 조율
+  const countPerCategory = Math.min(5, Math.max(1, Math.ceil(requestedTotal / selectedCategories.length)));
+
   // 모의 뉴스 시간차 배열
   const timeOffsets = [15, 45, 90, 150, 240, 360, 480, 600];
 
@@ -625,11 +649,11 @@ async function fetchNews() {
   try {
     let firstNewsItems = [];
     if (hasApiKey) {
-      firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt);
+      firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt, countPerCategory);
     } else {
       // 로딩 체감 가상 대기 (0.3초)
       await new Promise(resolve => setTimeout(resolve, 300));
-      firstNewsItems = getMockNewsForCategory(firstCategory, timeOffsets[0]);
+      firstNewsItems = getMockNewsForCategory(firstCategory, timeOffsets[0], countPerCategory);
     }
 
     // 비동기 실행 도중 세션이 만료되었는지 확인
@@ -698,11 +722,11 @@ async function fetchNews() {
     try {
       let items = [];
       if (hasApiKey) {
-        items = await fetchGeminiNewsForCategory(state.apiKey, category, state.prompt);
+        items = await fetchGeminiNewsForCategory(state.apiKey, category, state.prompt, countPerCategory);
       } else {
         // 모의 모드: 자연스러운 슬라이드식 시간차 부착 연출 (1초 간격)
         await new Promise(resolve => setTimeout(resolve, 800 * (sliceIdx + 1)));
-        items = getMockNewsForCategory(category, timeOffsets[(sliceIdx + 1) % timeOffsets.length]);
+        items = getMockNewsForCategory(category, timeOffsets[(sliceIdx + 1) % timeOffsets.length], countPerCategory);
       }
 
       if (thisSession !== currentFetchSession) return;
@@ -725,8 +749,8 @@ async function fetchNews() {
   });
 }
 
-// Gemini API를 사용하여 단일 카테고리에 대한 뉴스 1개 요약 생성 (속도 극대화)
-async function fetchGeminiNewsForCategory(apiKey, category, prompt) {
+// Gemini API를 사용하여 단일 카테고리에 대한 뉴스 요약 생성 (속도 극대화, 개수 동적)
+async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
   // 대한민국 표준시(KST) 기준 시간 표기 생성
   const now = new Date();
   const currentLocalTimeStr = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -756,7 +780,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt) {
     2. 본문("body")은 뉴스 카드로 화면에 직접 렌더링되므로, 군더더기 단어 없이 아나운서가 부드럽게 읽을 수 있는 가장 세련되고 완성도 높은 한국어 줄글 문장(2~3문장 내외)으로만 채우십시오.
     3. 중복되는 번호나 분야 소개말은 완전히 배제하고 오직 팩트 위주의 본문 내용만 기입하십시오.
 
-    이 설정에 맞춰서 신뢰성 높은 최신 아침 뉴스 브리핑 1가지를 생성하고 JSON 배열 형식으로만 반환해줘.
+    이 설정에 맞춰서 신뢰성 높은 최신 아침 뉴스 브리핑 ${count}가지를 생성하고 JSON 배열 형식으로만 반환해줘.
     반드시 아래 JSON 스키마만 정확하게 준수하여 응답해줘. 설명 문구 없이 JSON 배열 텍스트만 출력해줘:
 
     [
