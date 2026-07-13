@@ -839,15 +839,15 @@ function renderNewsList(list) {
       <div>
         <div class="card-header">
           <span class="category-tag ${news.category}">${news.category}</span>
-          <span class="card-time">${news.time}</span>
+          <div class="card-header-right">
+            <span class="card-time">${news.time}</span>
+            <button class="btn-card-listen" data-index="${index}">
+              <i class="fa-solid fa-volume-high"></i>
+            </button>
+          </div>
         </div>
         <h2 class="card-title">${news.title}</h2>
         <p class="card-body">${cleanNewsBodyText(news.body, news.category)}</p>
-      </div>
-      <div class="card-footer">
-        <button class="btn-card-listen" data-index="${index}">
-          <i class="fa-solid fa-volume-high"></i> 듣기
-        </button>
       </div>
     `;
     grid.appendChild(card);

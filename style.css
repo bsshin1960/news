@@ -520,31 +520,33 @@ body.light-theme .menu-bar-bottom {
   flex: 1;
 }
 
-/* 카드 하단 액션 */
-.card-footer {
+/* 카드 헤더 우측 영역 (시간 + 듣기 버튼) */
+.card-header-right {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
 }
 
 .btn-card-listen {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--glass-border);
-  color: var(--text-primary);
-  font-family: var(--font-family);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   transition: var(--transition-smooth);
 }
 
 .btn-card-listen:hover {
   background: var(--primary);
   border-color: var(--primary);
+  color: #fff;
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
 }
 
@@ -1276,8 +1278,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .btn-card-listen {
-  background: rgba(0, 0, 0, 0.03);
-  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-muted);
 }
 
 .player-panel {
@@ -1349,7 +1352,8 @@ body.dark-theme .main-title {
 
 body.dark-theme .btn-card-listen {
   background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
+  border-color: var(--glass-border);
+  color: var(--text-muted);
 }
 
 body.dark-theme .player-panel {
