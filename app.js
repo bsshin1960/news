@@ -533,16 +533,22 @@ async function fetchNews() {
   
   const hasApiKey = state.apiKey.trim() !== '';
 
-  // 현재 시각 기준 상대적 동적 시간을 반환하는 헬퍼 함수 (12시간 이내)
+  // 현재 시각 기준 상대적 동적 시간을 반환하는 헬퍼 함수 (12시간 이내, 한국 시간 포맷)
   const getDynamicTime = (minusMinutes) => {
     const now = new Date();
     const target = new Date(now.getTime() - minusMinutes * 60 * 1000);
+    
+    // 한국 시간대 기준 월/일 계산
+    const month = String(target.getMonth() + 1).padStart(2, '0');
+    const date = String(target.getDate()).padStart(2, '0');
+    
     const hours = target.getHours();
     const minutes = target.getMinutes();
     const ampm = hours >= 12 ? '오후' : '오전';
     const displayHours = hours % 12 || 12;
     const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
-    return `${ampm} ${displayHours}:${displayMinutes}`;
+    
+    return `${month}.${date} ${ampm} ${displayHours}:${displayMinutes}`;
   };
 
   // 모의 뉴스별 현재 시각 기준 상대적 시간차 배열 (분 단위, 모두 12시간 = 720분 이내)
@@ -612,15 +618,19 @@ async function fetchNews() {
 
 // Gemini API를 사용하여 뉴스 요약 생성
 async function fetchGeminiNews(apiKey, categories, prompt) {
-  const currentLocalTimeStr = new Date().toLocaleString('ko-KR');
+  // 대한민국 표준시(KST) 기준 시간 표기 생성
+  const now = new Date();
+  const currentLocalTimeStr = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+  const currentDate = String(now.getDate()).padStart(2, '0');
 
   const promptText = `
     역할: 전문 아침 뉴스 앵커 및 아나운서
     
     시간 제한 규정 (가장 중요):
-    현재 사용자의 로컬 시각은 [ ${currentLocalTimeStr} ] 입니다.
-    반드시 이 기준 시각으로부터 최대 12시간 이내(현재 시각 기준 12시간 전부터 현재 시각 사이)에 발생한 실제 최신 뉴스나 트렌디한 브리핑만 가져와야 합니다. 
-    12시간이 경과한 옛날 과거 뉴스는 절대로 포함해서는 안 되며, 들려주어서도 안 됩니다. 무조건 12시간 이내의 최신성 정보만 취급하세요.
+    현재 대한민국의 로컬 시각은 한국 표준시(KST) 기준 [ ${currentLocalTimeStr} ] 입니다.
+    반드시 이 KST 시각 기준으로부터 최대 12시간 이내(현재 시각 기준 12시간 전부터 현재 시각 사이)에 대한민국 및 글로벌 지역에서 발생한 실제 최신 뉴스나 트렌디한 브리핑만 가져와야 합니다. 
+    12시간이 경과한 옛날 과거 뉴스는 절대로 포함해서는 안 되며, 들려주어서도 안 됩니다. 무조건 KST 기준 12시간 이내의 최신성 정보만 취급하세요.
 
     요청사항: 
     사용자가 선택한 관심 분야는 다음과 같습니다: [${categories.join(', ')}].
@@ -640,7 +650,7 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
         "category": "정치",
         "title": "뉴스 제목",
         "body": "화면에 직접 표기될 격식 있고 자연스러운 줄글 형태의 뉴스 내용 (첫째/둘째 등 기호 일절 없음)",
-        "time": "오전 08:00"
+        "time": "${currentMonth}.${currentDate} 오전 08:00"
       }
     ]
   `;
