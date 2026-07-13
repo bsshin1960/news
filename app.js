@@ -2,7 +2,7 @@
 // 1. 상태 및 상수 정의
 // ====================================================
 let state = {
-  categories: ['정치', '경제', '증시', '과학'],
+  categories: ['정치', '경제', '증시', '과학', '날씨', '사회', '스포츠', '문화', 'AI뉴스'],
   prompt: '',
   apiKey: '',
   voiceName: '',
@@ -46,30 +46,37 @@ const MOCK_NEWS_TEMPLATES = [
   },
   {
     id: 5,
-    category: '정치',
-    title: '국회, 신산업 육성을 위한 규제 샌드박스 연장 법안 통과',
-    body: '국회 본회의에서 자율주행 및 드론 배송 등 신산업 분야의 도심 테스트를 3년간 연장 허용하는 규제 완화 특별법 개정안이 통과되었습니다. 여야 합의에 따라 발 빠르게 처리되며 스타트업 업계는 환영의 뜻을 표명했습니다.',
-    time: '오전 08:25'
+    category: '날씨',
+    title: '기상청, 오늘 밤부터 전국 강풍 동반한 기습 폭설 및 한파 주의보령 발령',
+    body: '기상청은 오늘 자정부터 중부 지방을 중심으로 순간 시속 70킬로미터 이상의 돌풍과 함께 최대 15센티미터 이상의 폭설이 내릴 것으로 예보했습니다. 내일 출근길 전국적인 빙판길 교통안전과 대중교통 이용을 신신당부했습니다.',
+    time: '오전 08:15'
   },
   {
     id: 6,
-    category: '경제',
-    title: '중소 벤처기업 자금 조달 창구 확대를 위한 정책 자금 조기 집행',
-    body: '금융위원회는 고금리로 어려움을 겪고 있는 소상공인과 중소 벤처기업을 대상으로 한 저금리 대환 대출 및 상생 보증 재원을 하반기 시작과 동시에 집중 방출하겠다고 밝혔습니다. 총 규모는 5조 원 규모에 달합니다.',
-    time: '오전 08:35'
+    category: '사회',
+    title: '경찰청, 지능형 보이스피싱 금융 범죄 차단을 위한 AI 실시간 탐지 기법 전격 도입',
+    body: '경찰청은 시중 은행과 손잡고 통화 중 보이스피싱 의심 키워드와 목소리 톤의 이상 징후를 실시간 감지하여 즉시 이체를 차단하는 차세대 AI 차단 시스템을 전국 지점에 시범 적용한다고 밝혔습니다.',
+    time: '오전 08:20'
   },
   {
     id: 7,
-    category: '증시',
-    title: '뉴욕 증시, 연준 금리 인하 기대감 상승 속에 나스닥 사상 최고치 경신',
-    body: '소비자물가지수(CPI) 둔화세가 뚜렷해짐에 따라 미 연방준비제도의 조기 금리 인하 가능성이 고개를 들며 기술주 중심의 나스닥 종합 지수가 강세를 보였습니다. 빅테크 기업들이 일제히 2~3%대 상승세를 기록했습니다.',
-    time: '오전 08:45'
+    category: '스포츠',
+    title: '한국 골프 대표팀, 세계 주니어 선수권에서 극적인 대역전 우승 쾌거',
+    body: '한국 청소년 골프 국가대표팀이 마지막 라운드에서 침착한 버디 퍼팅 랠리를 보이며 강력한 경쟁 후보인 미국과 일본을 2타 차로 따돌리고 사상 최초 종합 단체전 금메달을 목에 걸었습니다.',
+    time: '오전 08:30'
   },
   {
     id: 8,
-    category: '과학',
-    title: '우주항공청, 차세대 독자 위성 발사 성공 및 신호 정상 수신 확인',
-    body: '우주항공청 주도로 개발된 정밀 지구관측용 중소형 위성이 우주 궤도에 무사히 진입한 후 대전 지상국과의 첫 교신에 성공했습니다. 향후 고해상도 환경 데이터 수집에 주력할 예정입니다.',
+    category: '문화',
+    title: '국립 미술관, 초실감 VR 기술 활용한 가상 고궁 유물 특별 기획전 개최',
+    body: '문화재청과 미술관은 최첨단 레이저 스캐닝 가상현실 렌더러 기술을 활용해 조선 시대 궁궐 내부의 왕실 생활 유물을 오감으로 실감 나게 탐험할 수 있는 신규 디지털 헤리티지 전시회를 일반에 무료 개방했습니다.',
+    time: '오전 08:40'
+  },
+  {
+    id: 9,
+    category: 'AI뉴스',
+    title: '국내 AI 연구소, 인간의 복합적 감정을 이해하는 감성 대화 지능 상용화 성공',
+    body: '국내 연구진이 멀티모달 인식 알고리즘을 고도화하여 사용자의 미세한 얼굴 근육 떨림과 음성 파장을 실시간 판별하고, 그에 맞는 맞춤형 정서적 공감 대화를 주고받을 수 있는 지능형 반려 로봇 상용화 시스템을 성공적으로 발표했습니다.',
     time: '오전 08:50'
   }
 ];
@@ -122,9 +129,18 @@ function initStorage() {
   }
 
   // UI 컴포넌트에 바인딩
-  document.querySelectorAll('input[name="categories"]').forEach(cb => {
+  const categoryCbs = document.querySelectorAll('input[name="categories"]');
+  categoryCbs.forEach(cb => {
     cb.checked = state.categories.includes(cb.value);
   });
+  
+  // 전체 선택 체크박스 동기화
+  const allChecked = categoryCbs.length > 0 && Array.from(categoryCbs).every(cb => cb.checked);
+  const categoryAll = document.getElementById('category-all');
+  if (categoryAll) {
+    categoryAll.checked = allChecked;
+  }
+
   document.getElementById('prompt-input').value = state.prompt;
   document.getElementById('api-key-input').value = state.apiKey;
   document.getElementById('speed-slider').value = state.speed;
@@ -403,6 +419,28 @@ function bindUIEvents() {
       updateThemeIcon(themeMode);
     });
   }
+
+  // --- 관심사 전체 선택 (Select All) 제어 ---
+  const categoryAll = document.getElementById('category-all');
+  const categoryInputs = document.querySelectorAll('input[name="categories"]');
+  
+  if (categoryAll) {
+    categoryAll.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      categoryInputs.forEach(cb => {
+        cb.checked = isChecked;
+      });
+    });
+  }
+
+  categoryInputs.forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (categoryAll) {
+        const allChecked = Array.from(categoryInputs).every(item => item.checked);
+        categoryAll.checked = allChecked;
+      }
+    });
+  });
 }
 
 // 키보드 단축키

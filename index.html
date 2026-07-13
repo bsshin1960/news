@@ -208,6 +208,11 @@
           <div class="form-group">
             <label class="form-label">관심사 카테고리 (중복 선택 가능)</label>
             <div class="checkbox-grid">
+              <label class="checkbox-container select-all-container" style="grid-column: 1 / -1; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 8px;">
+                <input type="checkbox" id="category-all" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                <span style="font-weight: 700; color: var(--primary);">전체 선택 (Select All)</span>
+              </label>
               <label class="checkbox-container">
                 <input type="checkbox" name="categories" value="정치" checked>
                 <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
@@ -227,6 +232,31 @@
                 <input type="checkbox" name="categories" value="과학" checked>
                 <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
                 과학 (Science)
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="날씨" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                날씨 (Weather)
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="사회" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                사회 (Society)
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="스포츠" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                스포츠 (Sports)
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="문화" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                문화 (Culture)
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="categories" value="AI뉴스" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                AI뉴스 (AI News)
               </label>
             </div>
           </div>
@@ -326,6 +356,6 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=20260713_21"></script>
+  <script type="module" src="app.js?v=20260713_22"></script>
 </body>
 </html>
