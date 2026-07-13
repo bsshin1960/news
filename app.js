@@ -10,7 +10,8 @@ let state = {
   newsList: [],
   currentNewsIndex: -1,
   isPlaying: false,
-  isPaused: false
+  isPaused: false,
+  hasSpokenIntro: false
 };
 
 // 모의 뉴스 데이터 템플릿 (API 키 미제공 시 관심사에 따라 필터링되어 노출됨)
@@ -905,11 +906,12 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
   
   // 낭독 텍스트 구성 (인트로 및 분야/제목 단어 제거)
   let speakText = '';
-  if (index === 0 && isPlaylistStart) {
+  if (index === 0 && !state.hasSpokenIntro) {
     const today = new Date();
     const month = today.getMonth() + 1;
     const date = today.getDate();
-    speakText += `${month}월 ${date}일, 오늘의 주요 뉴스를 알려드립니다. `;
+    speakText += `${month}월 ${date}일 오늘 주요 뉴스를 알려드립니다. `;
+    state.hasSpokenIntro = true;
   }
   
   // 직전 카드와 동일 카테고리 여부 검사
