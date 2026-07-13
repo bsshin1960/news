@@ -246,6 +246,11 @@ body.light-theme .menu-bar-bottom {
   color: var(--secondary);
 }
 
+.logo-tts {
+  display: none;
+}
+
+
 .nav-menu {
   display: flex;
   gap: 8px;
@@ -419,6 +424,26 @@ body.light-theme .menu-bar-bottom {
   .news-grid {
     grid-template-columns: 1fr;
   }
+
+  /* 모바일 제목: 13px 굵은 글씨 + 한줄 요약 */
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  /* 모바일에서 날짜 및 시간 표시 숨김 */
+  .card-time {
+    display: none !important;
+  }
+
+  .date-badge {
+    display: none !important;
+  }
+
+  /* 모바일 로고에 TTS 다시 표시 */
+  .logo-tts {
+    display: inline !important;
+  }
 }
 
 /* Glassmorphism News Card */
@@ -570,6 +595,10 @@ body.dark-theme .category-group-title.산업 { background: rgba(2, 132, 199, 0.2
   margin-bottom: 10px;
   line-height: 1.4;
   color: var(--text-primary);
+  /* 한줄 말줄임 처리 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-body {
