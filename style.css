@@ -8,21 +8,21 @@
   --glass-bg-hover: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(99, 102, 241, 0.12);
   --glass-border-focus: rgba(99, 102, 241, 0.45);
-  
+
   --primary: #6366f1;
   --primary-glow: rgba(99, 102, 241, 0.12);
   --secondary: #06b6d4;
   --secondary-glow: rgba(6, 182, 212, 0.08);
   --accent: #ec4899;
-  
+
   --text-primary: #0f172a;
   --text-muted: #475569;
   --text-dark: #0f172a;
-  
+
   --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 25px -5px rgba(99, 102, 241, 0.06), 0 8px 10px -6px rgba(99, 102, 241, 0.06);
   --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.25);
-  
+
   --font-family: 'Outfit', 'Noto Sans KR', sans-serif;
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -41,10 +41,10 @@ body.dark-theme {
   --glass-bg-hover: rgba(30, 41, 59, 0.6);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-border-focus: rgba(99, 102, 241, 0.4);
-  
+
   --text-primary: #f8fafc;
   --text-muted: #94a3b8;
-  
+
   --primary-glow: rgba(99, 102, 241, 0.35);
   --secondary-glow: rgba(6, 182, 212, 0.3);
   --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
@@ -276,7 +276,7 @@ body.light-theme .menu-bar-bottom {
   transition: var(--transition-smooth);
 }
 
-.menu-trigger:hover, 
+.menu-trigger:hover,
 .menu-item.active .menu-trigger {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.06);
@@ -598,7 +598,8 @@ body.dark-theme .category-group-title.산업 { background: rgba(2, 132, 199, 0.2
 }
 
 .card-body {
-  font-size: 13px;
+  font-size: 18px;
+  line-height: 1.7;
   color: var(--text-muted);
   margin-bottom: 20px;
   flex: 1;
@@ -1299,39 +1300,39 @@ input[type="range"]::-webkit-slider-thumb:hover {
     background: white !important;
     color: black !important;
   }
-  
-  .bg-glow, 
-  .menu-bar, 
-  .player-panel, 
-  .modal-overlay, 
-  .install-banner, 
+
+  .bg-glow,
+  .menu-bar,
+  .player-panel,
+  .modal-overlay,
+  .install-banner,
   .btn-card-listen {
     display: none !important;
   }
-  
+
   .main-content {
     padding: 0 !important;
     max-width: 100% !important;
   }
-  
+
   .date-badge {
     background: none !important;
     color: black !important;
     border: 1px solid black;
     box-shadow: none !important;
   }
-  
+
   .main-title {
     background: none !important;
     -webkit-text-fill-color: initial !important;
     color: black !important;
   }
-  
+
   .news-grid {
     grid-template-columns: 1fr !important;
     gap: 20px !important;
   }
-  
+
   .news-card {
     background: none !important;
     border: 1px solid #ccc !important;
@@ -1339,13 +1340,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
     box-shadow: none !important;
     page-break-inside: avoid;
   }
-  
+
   .card-title {
     color: black !important;
   }
-  
+
   .card-body {
     color: #444 !important;
+    line-height: 1.7;
   }
 }
 

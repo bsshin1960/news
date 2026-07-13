@@ -684,6 +684,35 @@ async function rateLimitedFetch(url, options) {
     release();
   }
 }
+function isMobileRuntime() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+}
+
+function getNewsErrorAdvice(message = '') {
+  const text = String(message);
+  const advice = [];
+
+  if (isMobileRuntime()) {
+    advice.push('휴대폰 브라우저는 PC와 설정 저장소가 분리되어 있어 Gemini API 키를 휴대폰에서도 한 번 입력해야 합니다.');
+  }
+  if (!navigator.onLine) {
+    advice.push('현재 브라우저가 오프라인 상태로 감지됩니다. 와이파이 또는 모바일 데이터를 확인해 주세요.');
+  }
+  if (/API 키|API key|key/i.test(text)) {
+    advice.push('설정 창에서 Gemini API 키가 비어 있지 않은지, 앞뒤 공백 없이 저장됐는지 확인해 주세요.');
+  }
+  if (/429|quota|한도|rate/i.test(text)) {
+    advice.push('Gemini 무료 요청 한도에 도달했습니다. 앱이 자동 대기 후 재시도하지만, 한도가 계속 막히면 1분 정도 뒤 다시 시도해야 합니다.');
+  }
+  if (/네트워크|Failed to fetch|Network|인터넷/i.test(text)) {
+    advice.push('휴대폰에서 이 앱 주소에 접속한 뒤 외부 HTTPS 요청이 가능한지 확인해 주세요. 회사/공공 와이파이에서는 Google API가 차단될 수 있습니다.');
+  }
+  if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    advice.push('휴대폰에서 PC 개발 서버를 HTTP로 접속 중입니다. 일부 모바일 브라우저 기능이 제한될 수 있습니다.');
+  }
+
+  return advice;
+}
 function getKstDateInfo(date = new Date()) {
   const parts = new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -847,11 +876,7 @@ async function fetchNews() {
     return;
   }
 
-  if (!hasApiKey) {
-    updatePlayerStatus('API 키 필요', '최신 뉴스 수집을 위해 설정에서 Gemini API 키를 입력해 주세요.');
-    renderErrorMessage('Gemini API 키가 없어 실시간 검색을 사용할 수 없습니다. 오래된 샘플 뉴스를 자동 낭독하지 않도록 중단했습니다.');
-    return;
-  }
+
 
   // 사용자가 프롬프트 추가 요구사항에 입력한 뉴스의 개수를 분석 (예: "10개", "10가지" 등)
   let requestedTotal = 5; // 기본 권장 총 기사 개수
@@ -1019,7 +1044,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
         body: JSON.stringify(requestBody)
       });
     } catch (netErr) {
-      throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
+      throw new Error(`네트워크 연결 실패: 인터넷 상태를 확인해 주세요. 상세: ${netErr.message || netErr}`);
     }
 
     if (!response.ok) {
@@ -1049,7 +1074,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
             body: JSON.stringify(requestBody)
           });
         } catch (netErr) {
-          throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
+          throw new Error(`네트워크 연결 실패: 인터넷 상태를 확인해 주세요. 상세: ${netErr.message || netErr}`);
         }
 
         if (!response.ok) {
@@ -1264,13 +1289,20 @@ function showNewsLoading() {
 // 에러 화면
 function renderErrorMessage(message = '') {
   const grid = document.getElementById('news-grid');
-  const errorInfo = message ? `<p style="color: var(--accent); font-size: 13px; margin-top: 12px; font-weight: 600;">상세 원인: ${message}</p>` : '';
+  const adviceList = getNewsErrorAdvice(message);
+  const errorInfo = message ? `<p style="color: var(--accent); font-size: 13px; margin-top: 12px; font-weight: 600; line-height: 1.6; word-break: break-word;">상세 원인: ${message}</p>` : '';
+  const adviceInfo = adviceList.length > 0 ? `
+    <div style="text-align: left; max-width: 760px; margin: 16px auto 0; color: var(--text-muted); font-size: 13px; line-height: 1.7;">
+      ${adviceList.map(item => `<p style="margin: 6px 0;">• ${item}</p>`).join('')}
+    </div>
+  ` : '';
   grid.innerHTML = `
     <div class="news-card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
       <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: var(--accent); margin-bottom: 16px;"></i>
       <h3 style="margin-bottom: 8px;">뉴스를 가져오지 못했습니다</h3>
-      <p style="color: var(--text-muted); font-size: 13px;">API 키 오류 또는 인터넷 연결이 불안정할 수 있습니다. 설정 창에서 API 키를 재확인하시거나 오프라인 모드용 기본 모의 뉴스를 사용해 보세요.</p>
+      <p style="color: var(--text-muted); font-size: 13px; line-height: 1.6;">API 키, 요청 한도, 모바일 네트워크 상태 중 하나가 원인일 수 있습니다. 아래 상세 원인과 점검 항목을 확인해 주세요.</p>
       ${errorInfo}
+      ${adviceInfo}
       <button class="btn btn-primary" onclick="location.reload()" style="margin-top: 16px;">새로고침</button>
     </div>
   `;
