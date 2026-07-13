@@ -975,18 +975,15 @@ async function fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sess
   }
 
   backgroundFetchPending += plan.length;
-  const useRSS = !apiKey || apiKey.trim() === '';
   await Promise.all(plan.map(async ({ category, count }) => {
     try {
-      const items = useRSS
-        ? await fetchNaverRSSNews(category, count)
-        : await fetchGeminiNewsForCategory(apiKey, category, prompt, count);
+      const items = await fetchNaverRSSNews(category, count);
       if (sessionId !== currentFetchSession) return;
       appendFetchedNewsItems(items, targetTotal);
     } catch (err) {
       console.warn(`${category} 카테고리 ${attempt + 1}차 보충 검색 실패:`, err);
       // RSS 실패 시에도 샘플 뉴스로 폴백
-      if (useRSS && sessionId === currentFetchSession) {
+      if (sessionId === currentFetchSession) {
         appendFetchedNewsItems(getMockNewsForCategory(category, 25 + attempt * 20, count), targetTotal);
       }
     } finally {
@@ -1010,7 +1007,6 @@ async function fetchNews() {
   backgroundFetchPending = 0;
   lastRenderedCategory = ''; // 카테고리 헤더 렌더링 추적 초기화
   
-  const hasApiKey = state.apiKey.trim() !== '';
   const selectedCategories = [...state.categories];
 
   if (selectedCategories.length === 0) {
@@ -1018,10 +1014,8 @@ async function fetchNews() {
     return;
   }
 
-
-
-  // 사용자가 프롬프트 추가 요구사항에 입력한 뉴스의 개수를 분석 (예: "10개", "10가지" 등)
-  let requestedTotal = 5; // 기본 권장 총 기사 개수
+  // 뉴스 개수 (기본 5개)
+  let requestedTotal = 5;
   const promptStyle = state.prompt.toLowerCase().trim();
   const numMatch = promptStyle.match(/(\d+)\s*(개|가지|항목|뉴스|소식|개씩)/);
   if (numMatch) {
@@ -1032,17 +1026,10 @@ async function fetchNews() {
 
   // 1단계: 첫 번째 카테고리 즉각 쾌속 수집 및 낭독
   const firstCategory = selectedCategories[0];
-  updatePlayerStatus('뉴스 준비 중', `첫 소식(${firstCategory})을 준비하는 중입니다...`);
+  updatePlayerStatus('실시간 뉴스 수집 중', `네이버 뉴스에서 [${firstCategory}] 최신 속보를 검색하는 중입니다...`);
 
   try {
-    let firstNewsItems = [];
-    if (hasApiKey) {
-      firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt, firstBatchCount, { fastFirst: true });
-    } else {
-      // API 키 없이 네이버 뉴스 RSS 실시간 수집
-      updatePlayerStatus('실시간 뉴스 수집 중', `네이버 뉴스에서 [${firstCategory}] 최신 속보를 검색하는 중입니다...`);
-      firstNewsItems = await fetchNaverRSSNews(firstCategory, firstBatchCount);
-    }
+    const firstNewsItems = await fetchNaverRSSNews(firstCategory, firstBatchCount);
 
     // 비동기 실행 도중 세션이 만료되었는지 확인
     if (thisSession !== currentFetchSession) return;
@@ -1050,29 +1037,6 @@ async function fetchNews() {
     // 로딩 완료 후 그리드 리프레시
     const grid = document.getElementById('news-grid');
     grid.innerHTML = '';
-
-    // API Key 미등록 시 최상단 안내 배너 추가
-    if (!hasApiKey) {
-      const warningBanner = document.createElement('div');
-      warningBanner.className = 'news-card';
-      warningBanner.style.gridColumn = '1 / -1';
-      warningBanner.style.padding = '16px';
-      warningBanner.style.marginBottom = '16px';
-      warningBanner.innerHTML = `
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-          <i class="fa-solid fa-rss" style="color: var(--primary); font-size: 18px; margin-top: 2px;"></i>
-          <div>
-            <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: var(--text-primary);">📡 네이버 뉴스 실시간 피드 모드</h4>
-            <p style="margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.4;">
-              네이버 뉴스 RSS를 통해 <strong>실시간 최신 뉴스 헤드라인</strong>을 자동 수집하여 제공합니다.
-            </p>
-          </div>
-        </div>
-      `;
-      warningBanner.style.borderColor = 'var(--primary)';
-      warningBanner.style.background = 'rgba(3, 199, 90, 0.08)';
-      grid.appendChild(warningBanner);
-    }
 
     if (firstNewsItems && firstNewsItems.length > 0) {
       appendFetchedNewsItems(firstNewsItems, requestedTotal);
@@ -1098,7 +1062,7 @@ async function fetchNews() {
   }
 
   // 2단계: 요청한 총 개수까지 나머지 뉴스를 병렬로 보충 수집한다.
-  fillNewsUntilTarget(state.apiKey, selectedCategories, state.prompt, requestedTotal, thisSession);
+  fillNewsUntilTarget('', selectedCategories, state.prompt, requestedTotal, thisSession);
 }
 
 // Gemini API를 사용하여 단일 카테고리에 대한 뉴스 요약 생성 (속도 극대화, 개수 동적)
