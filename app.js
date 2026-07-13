@@ -730,12 +730,17 @@ function cleanNewsBodyText(body, category) {
 function showNewsLoading() {
   const grid = document.getElementById('news-grid');
   grid.innerHTML = `
-    <div class="news-skeleton">
-      <div class="skeleton-title"></div>
-      <div class="skeleton-content"></div>
-      <div class="skeleton-content"></div>
-      <div class="skeleton-footer"></div>
+    <!-- 뉴스 로딩 상태 안내 카드 -->
+    <div class="news-card loading-status-card" style="text-align: center; padding: 32px; border-color: var(--glass-border-focus); margin-bottom: 8px; animation: fadeIn 0.4s ease;">
+      <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 36px; color: var(--primary); margin-bottom: 16px;"></i>
+      <h3 style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">
+        최신 뉴스를 불러옵니다. 잠시만 기다려 주세요.
+      </h3>
+      <p style="font-size: 13px; color: var(--text-muted);">
+        실시간 구글 검색을 연동하여 정확한 팩트 기반의 맞춤 아침 뉴스를 정밀 요약 중입니다.
+      </p>
     </div>
+    
     <div class="news-skeleton">
       <div class="skeleton-title"></div>
       <div class="skeleton-content"></div>
