@@ -858,14 +858,14 @@ function renderNewsList(list) {
     card.id = `news-card-${index}`;
     card.innerHTML = `
       <div>
-        <div class="card-header" style="justify-content: flex-end; margin-bottom: 8px; display: flex; align-items: center;">
-          <span class="card-time">${news.time}</span>
-        </div>
-        <div class="card-title-row" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px;">
+        <div class="card-title-row" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px;">
           <h2 class="card-title" style="margin: 0; flex: 1;">${news.title}</h2>
-          <button class="btn-card-listen" data-index="${index}" style="flex-shrink: 0; margin-top: 2px;">
-            <i class="fa-solid fa-volume-high"></i>
-          </button>
+          <div class="card-title-meta" style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+            <span class="card-time" style="font-size: 12px; color: var(--text-muted); font-weight: 500;">${news.time}</span>
+            <button class="btn-card-listen" data-index="${index}" style="margin: 0;">
+              <i class="fa-solid fa-volume-high"></i>
+            </button>
+          </div>
         </div>
         <p class="card-body" style="margin-bottom: 0;">${cleanNewsBodyText(news.body, news.category)}</p>
       </div>
