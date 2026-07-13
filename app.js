@@ -6,12 +6,11 @@ let lastRenderedCategory = '';
 let backgroundFetchPending = 0;
 const FAST_NEWS_MODEL_CANDIDATES = [
   { name: 'gemini-2.0-flash', version: 'v1beta' },
-  { name: 'gemini-2.5-flash', version: 'v1beta' },
   { name: 'gemini-1.5-flash', version: 'v1beta' }
 ];
 const FIRST_NEWS_MODEL_CANDIDATES = [
   { name: 'gemini-2.0-flash', version: 'v1beta' },
-  { name: 'gemini-2.5-flash', version: 'v1beta' }
+  { name: 'gemini-1.5-flash', version: 'v1beta' }
 ];
 const MAX_BACKGROUND_NEWS_REQUESTS = 2;
 const MAX_NEWS_FILL_ATTEMPTS = 4;
@@ -1088,9 +1087,9 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
         lastError = `[${version}/${model}] 에러 코드 ${response.status} (상세: ${errMsg || response.statusText})`;
         console.warn(`모델 ${version}/${model} 사용 실패로 다음 모델 폴백...`, lastError);
         
-        // 429 한도 초과의 경우 다음 모델 진입 전 2초간 짧은 여유 대기만 제공
+        // 429 한도 초과의 경우 다음 모델 진입 전 3.5초간 안전 대기 제공 (속도 제약 완화)
         if (response.status === 429) {
-          await sleep(2000);
+          await sleep(3500);
         }
         continue;
       }
