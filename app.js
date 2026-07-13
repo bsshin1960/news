@@ -3,6 +3,22 @@
 // ====================================================
 let currentFetchSession = 0;
 let lastRenderedCategory = '';
+let backgroundFetchPending = 0;
+const FAST_NEWS_MODEL_CANDIDATES = [
+  { name: 'gemini-2.0-flash', version: 'v1beta' },
+  { name: 'gemini-2.5-flash', version: 'v1beta' },
+  { name: 'gemini-1.5-flash', version: 'v1beta' }
+];
+const FIRST_NEWS_MODEL_CANDIDATES = [
+  { name: 'gemini-2.0-flash', version: 'v1beta' },
+  { name: 'gemini-2.5-flash', version: 'v1beta' }
+];
+const MAX_BACKGROUND_NEWS_REQUESTS = 2;
+const MAX_NEWS_FILL_ATTEMPTS = 4;
+const GEMINI_MIN_REQUEST_INTERVAL_MS = 3500;
+const GEMINI_QUOTA_RETRY_PADDING_MS = 1500;
+let nextGeminiRequestAt = 0;
+let geminiRequestQueue = Promise.resolve();
 
 let state = {
   categories: ['정치', '경제', '증시', '과학', '날씨', '사회', '스포츠', '문화', 'AI뉴스', '건강', '연예', '산업'],
@@ -636,6 +652,181 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
   return results;
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function extractRetryDelayMs(message = '') {
+  const match = String(message).match(/retryDelay['"]?s*:s*['"]?(\d+(?:\.\d+)?)s/i) || String(message).match(/retry ins*(\d+(?:\.\d+)?)s/i);
+  if (!match) return 0;
+  return Math.ceil(Number(match[1]) * 1000) + GEMINI_QUOTA_RETRY_PADDING_MS;
+}
+
+async function waitForGeminiRequestSlot() {
+  const previous = geminiRequestQueue;
+  let release;
+  geminiRequestQueue = new Promise(resolve => { release = resolve; });
+  await previous;
+
+  const now = Date.now();
+  const waitMs = Math.max(0, nextGeminiRequestAt - now);
+  if (waitMs > 0) await sleep(waitMs);
+
+  nextGeminiRequestAt = Date.now() + GEMINI_MIN_REQUEST_INTERVAL_MS;
+  return release;
+}
+
+async function rateLimitedFetch(url, options) {
+  const release = await waitForGeminiRequestSlot();
+  try {
+    return await fetch(url, options);
+  } finally {
+    release();
+  }
+}
+function getKstDateInfo(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(date).reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return {
+    year: Number(parts.year),
+    month: parts.month,
+    date: parts.day,
+    hour: parts.hour,
+    minute: parts.minute,
+    label: `${Number(parts.year)}년 ${Number(parts.month)}월 ${Number(parts.day)}일`
+  };
+}
+
+function parseKoreanNewsTimeToDate(timeText, reference = new Date()) {
+  if (!timeText || typeof timeText !== 'string') return null;
+
+  const refKst = getKstDateInfo(reference);
+  const match = timeText.match(/(?:(\d{4})[.\-/년]\s*)?(\d{1,2})[.\-/월]\s*(\d{1,2})일?\s*(오전|오후)?\s*(\d{1,2})[:시]\s*(\d{1,2})?/);
+  if (!match) return null;
+
+  const year = match[1] ? Number(match[1]) : refKst.year;
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const ampm = match[4];
+  let hour = Number(match[5]);
+  const minute = match[6] ? Number(match[6]) : 0;
+
+  if (ampm === '오후' && hour < 12) hour += 12;
+  if (ampm === '오전' && hour === 12) hour = 0;
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day) || !Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return null;
+  }
+
+  return new Date(Date.UTC(year, month - 1, day, hour - 9, minute));
+}
+
+function isRecentNewsTime(timeText, now = new Date()) {
+  const parsed = parseKoreanNewsTimeToDate(timeText, now);
+  if (!parsed) return false;
+
+  const diffMs = now.getTime() - parsed.getTime();
+  const futureToleranceMs = 10 * 60 * 1000;
+  const maxAgeMs = 24 * 60 * 60 * 1000;
+  return diffMs >= -futureToleranceMs && diffMs <= maxAgeMs;
+}
+
+function isLikelyDetailedArticleUrl(urlText) {
+  try {
+    const url = new URL(urlText);
+    const host = url.hostname.replace(/^www\./, '');
+    const normalizedPath = url.pathname.replace(/\/+$/, '');
+    const isHomeUrl = normalizedPath === '' || normalizedPath === '/';
+    const blockedHosts = ['naver.com', 'daum.net'];
+
+    if (blockedHosts.includes(host) || urlText.includes('example.com')) return false;
+    if (urlText.includes('AKR20260713000100001')) return false;
+    if (isHomeUrl && !url.search) return false;
+
+    return /^https?:$/.test(url.protocol);
+  } catch (_) {
+    return false;
+  }
+}
+function buildBackgroundNewsPlan(categories, remainingTotal) {
+  const plan = [];
+  if (remainingTotal <= 0 || categories.length === 0) return plan;
+
+  const activeCategories = categories.slice(0, Math.min(categories.length, MAX_BACKGROUND_NEWS_REQUESTS, remainingTotal));
+  const overfetchTotal = remainingTotal + Math.min(remainingTotal, activeCategories.length);
+
+  for (let i = 0; i < overfetchTotal; i++) {
+    const category = activeCategories[i % activeCategories.length];
+    let entry = plan.find(item => item.category === category);
+    if (!entry) {
+      entry = { category, count: 0 };
+      plan.push(entry);
+    }
+    entry.count += 1;
+  }
+
+  return plan;
+}
+function appendFetchedNewsItems(items, targetTotal) {
+  if (!Array.isArray(items) || items.length === 0) return 0;
+
+  let appended = 0;
+  for (const item of items) {
+    if (state.newsList.length >= targetTotal) break;
+    state.newsList.push(item);
+    const newIdx = state.newsList.length - 1;
+    appendNewsCard(item, newIdx);
+    appended += 1;
+  }
+
+  if (appended > 0 && state.isPlaying && state.currentNewsIndex !== -1) {
+    updateProgressBar(state.currentNewsIndex);
+  }
+
+  return appended;
+}
+async function fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sessionId, attempt = 0) {
+  if (sessionId !== currentFetchSession || state.newsList.length >= targetTotal || attempt >= MAX_NEWS_FILL_ATTEMPTS) return;
+
+  const missingCount = targetTotal - state.newsList.length;
+  const rotatedCategories = categories.slice(attempt % categories.length).concat(categories.slice(0, attempt % categories.length));
+  const plan = buildBackgroundNewsPlan(rotatedCategories, missingCount);
+  if (plan.length === 0) return;
+
+  if (attempt === 0) {
+    updatePlayerStatus('백그라운드 수집 중', `첫 소식을 낭독하는 동안 나머지 ${missingCount}개 뉴스를 병렬로 불러오는 중입니다...`);
+  } else {
+    updatePlayerStatus('뉴스 보충 중', `요청 개수를 채우기 위해 부족한 ${missingCount}개 뉴스를 추가 검색 중입니다...`);
+  }
+
+  backgroundFetchPending += plan.length;
+  await Promise.all(plan.map(async ({ category, count }) => {
+    try {
+      const items = await fetchGeminiNewsForCategory(apiKey, category, prompt, count);
+      if (sessionId !== currentFetchSession) return;
+      appendFetchedNewsItems(items, targetTotal);
+    } catch (err) {
+      console.warn(`${category} 카테고리 ${attempt + 1}차 보충 검색 실패:`, err);
+    } finally {
+      backgroundFetchPending = Math.max(0, backgroundFetchPending - 1);
+    }
+  }));
+
+  if (sessionId === currentFetchSession && state.newsList.length < targetTotal) {
+    await fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sessionId, attempt + 1);
+  }
+}
 async function fetchNews() {
   currentFetchSession++;
   const thisSession = currentFetchSession;
@@ -645,6 +836,7 @@ async function fetchNews() {
   
   state.newsList = [];
   state.currentNewsIndex = -1;
+  backgroundFetchPending = 0;
   lastRenderedCategory = ''; // 카테고리 헤더 렌더링 추적 초기화
   
   const hasApiKey = state.apiKey.trim() !== '';
@@ -655,6 +847,12 @@ async function fetchNews() {
     return;
   }
 
+  if (!hasApiKey) {
+    updatePlayerStatus('API 키 필요', '최신 뉴스 수집을 위해 설정에서 Gemini API 키를 입력해 주세요.');
+    renderErrorMessage('Gemini API 키가 없어 실시간 검색을 사용할 수 없습니다. 오래된 샘플 뉴스를 자동 낭독하지 않도록 중단했습니다.');
+    return;
+  }
+
   // 사용자가 프롬프트 추가 요구사항에 입력한 뉴스의 개수를 분석 (예: "10개", "10가지" 등)
   let requestedTotal = 5; // 기본 권장 총 기사 개수
   const promptStyle = state.prompt.toLowerCase().trim();
@@ -662,12 +860,8 @@ async function fetchNews() {
   if (numMatch) {
     requestedTotal = parseInt(numMatch[1]);
   }
-  // 각 카테고리별 요청 개수 동적 배분 (카테고리가 1개일 때 10개를 요청하면 10개 생성 시도)
-  // 단, API 무료 쿼터 및 쾌속 수집을 위해 단일 카테고리당 최대 5개로 하방 조율
-  const countPerCategory = Math.min(5, Math.max(1, Math.ceil(requestedTotal / selectedCategories.length)));
-
-  // 모의 뉴스 시간차 배열
-  const timeOffsets = [15, 45, 90, 150, 240, 360, 480, 600];
+  requestedTotal = Math.max(1, Math.min(20, requestedTotal));
+  const firstBatchCount = 1;
 
   // 1단계: 첫 번째 카테고리 즉각 쾌속 수집 및 낭독
   const firstCategory = selectedCategories[0];
@@ -676,11 +870,11 @@ async function fetchNews() {
   try {
     let firstNewsItems = [];
     if (hasApiKey) {
-      firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt, countPerCategory);
+      firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt, firstBatchCount, { fastFirst: true });
     } else {
       // 로딩 체감 가상 대기 (0.3초)
       await new Promise(resolve => setTimeout(resolve, 300));
-      firstNewsItems = getMockNewsForCategory(firstCategory, timeOffsets[0], countPerCategory);
+      firstNewsItems = getMockNewsForCategory(firstCategory, 15, firstBatchCount);
     }
 
     // 비동기 실행 도중 세션이 만료되었는지 확인
@@ -715,11 +909,7 @@ async function fetchNews() {
     }
 
     if (firstNewsItems && firstNewsItems.length > 0) {
-      firstNewsItems.forEach(item => {
-        state.newsList.push(item);
-        const newIdx = state.newsList.length - 1;
-        appendNewsCard(item, newIdx);
-      });
+      appendFetchedNewsItems(firstNewsItems, requestedTotal);
 
       updatePlayerStatus('낭독 대기 중', '첫 소식이 준비되어 즉시 자동 재생합니다. 다른 뉴스를 백그라운드에서 수집 중입니다...');
 
@@ -741,54 +931,33 @@ async function fetchNews() {
     return;
   }
 
-  // 2단계: 나머지 카테고리 백그라운드 순차/병렬 수집 진행
-  const remainingCategories = selectedCategories.slice(1);
-  if (remainingCategories.length === 0) return;
-
-  remainingCategories.forEach(async (category, sliceIdx) => {
-    try {
-      let items = [];
-      if (hasApiKey) {
-        items = await fetchGeminiNewsForCategory(state.apiKey, category, state.prompt, countPerCategory);
-      } else {
-        // 모의 모드: 자연스러운 슬라이드식 시간차 부착 연출 (1초 간격)
-        await new Promise(resolve => setTimeout(resolve, 800 * (sliceIdx + 1)));
-        items = getMockNewsForCategory(category, timeOffsets[(sliceIdx + 1) % timeOffsets.length], countPerCategory);
-      }
-
-      if (thisSession !== currentFetchSession) return;
-
-      if (items && items.length > 0) {
-        items.forEach(item => {
-          state.newsList.push(item);
-          const newIdx = state.newsList.length - 1;
-          appendNewsCard(item, newIdx);
-        });
-
-        // 재생 진행률 바 분모 갱신을 위한 강제 호출
-        if (state.isPlaying && state.currentNewsIndex !== -1) {
-          updateProgressBar(state.currentNewsIndex);
-        }
-      }
-    } catch (err) {
-      console.warn(`${category} 카테고리 백그라운드 요약 실패:`, err);
-    }
-  });
+  // 2단계: 요청한 총 개수까지 나머지 뉴스를 병렬로 보충 수집한다.
+  fillNewsUntilTarget(state.apiKey, selectedCategories, state.prompt, requestedTotal, thisSession);
 }
 
 // Gemini API를 사용하여 단일 카테고리에 대한 뉴스 요약 생성 (속도 극대화, 개수 동적)
-async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
+async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, options = {}) {
   // 대한민국 표준시(KST) 기준 시간 표기 생성
   const now = new Date();
+  const kstInfo = getKstDateInfo(now);
   const currentLocalTimeStr = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-  const currentDate = String(now.getDate()).padStart(2, '0');
+  const currentMonth = kstInfo.month;
+  const currentDate = kstInfo.date;
 
-  const promptText = `
+  const promptText = options.fastFirst ? `
+    역할: 빠른 아침 뉴스 앵커
+    현재 KST 시각은 [ ${currentLocalTimeStr} ], 오늘은 [ ${kstInfo.label} ] 입니다.
+    google_search로 [ ${category} ] 분야의 최근 24시간 이내 실제 한국 뉴스 1건만 즉시 찾아 JSON 배열로 반환하세요.
+    과거 학습 데이터, 가짜 기사, 언론사 메인 URL, 네이버/다음 홈 URL은 금지입니다.
+    source_url은 검색 결과의 실제 상세 기사 URL이어야 합니다.
+    body는 자연스러운 한국어 4문장으로 쓰세요. 핵심 사실, 배경, 영향, 유의점을 포함하고 title은 15자 이내로 쓰세요.
+    출력은 설명 없이 아래 스키마의 JSON 배열만 허용합니다.
+    [{"id":1,"category":"${category}","title":"15자 이내 제목","body":"뉴스 본문 4문장. 핵심 사실, 배경, 영향, 유의점을 포함","time":"${currentMonth}.${currentDate} 오전 08:00","source_name":"언론사명","source_url":"실제 상세 기사 URL"}]
+  ` : `
     역할: 전문 아침 뉴스 앵커 및 아나운서
     
     시간 및 검색 규정 (가장 엄격히 준수):
-    현재 대한민국의 로컬 시각은 한국 표준시(KST) 기준 [ ${currentLocalTimeStr} ] 이며, 오늘은 [ 2026년 7월 13일 ] 입니다.
+    현재 대한민국의 로컬 시각은 한국 표준시(KST) 기준 [ ${currentLocalTimeStr} ] 이며, 오늘은 [ ${kstInfo.label} ] 입니다.
     1. **반드시 google_search 도구를 적극 사용해 오늘 현재 시각 기준 "최근 24시간 이내"에 대한민국 메이저 언론사 등에 실제 보도된 실시간 최신 뉴스 및 사건들만 검색하여 요약 기재해야 합니다.**
     2. 과거에 이미 학습한 옛날 데이터나 가공의 기사를 들려주어서는 절대로 안 됩니다. 무조건 오늘 실제 발생한 시사/뉴스 검색 결과만 사용하십시오.
     3. 수집된 최신 뉴스의 정확한 보도 시각을 바탕으로 JSON의 "time" 필드를 채우십시오.
@@ -804,8 +973,8 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
 
     텍스트 형식 규정 (극도로 중요):
     1. 뉴스 본문("body")에는 절대로 "첫째", "둘째", "셋째", "넷째", "증시 뉴스입니다", "경제 소식입니다" 와 같은 인위적인 순서 표기 단어나 카테고리 머리말을 기재하지 마십시오.
-    2. 본문("body")은 뉴스 카드로 화면에 직접 렌더링되므로, 군더더기 단어 없이 아나운서가 부드럽게 읽을 수 있는 가장 세련되고 완성도 높은 한국어 줄글 문장(2~3문장 내외)으로만 채우십시오.
-    3. 중복되는 번호나 분야 소개말은 완전히 배제하고 오직 팩트 위주의 본문 내용만 기입하십시오.
+    2. 본문("body")은 뉴스 카드로 화면에 직접 렌더링되고 그대로 낭독되므로, 아나운서가 부드럽게 읽을 수 있는 한국어 줄글 4~6문장으로 작성하십시오. 기존보다 약 2배 상세하게, 핵심 사실과 발생 배경, 관련 수치나 관계자 반응, 시장·사회적 영향, 사용자가 알아야 할 후속 전망을 포함하십시오.
+    3. 중복되는 번호나 분야 소개말은 완전히 배제하고 오직 팩트 위주의 본문 내용만 기입하십시오. 단순 요약 한두 문장으로 끝내지 말고, 문장마다 새로운 정보를 담아 상세도를 높이십시오.
     4. **제목("title")은 반드시 15자 이내의 짧은 한줄 요약 헤드라인으로 작성하십시오.** 예시: "코스피 7천선 돌파", "유가 급락 비상경영". 길고 장황한 제목은 절대 금지입니다.
 
     이 설정에 맞춰서 신뢰성 높은 최신 아침 뉴스 브리핑 ${count}가지를 생성하고 JSON 배열 형식으로만 반환해줘.
@@ -816,56 +985,17 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
         "id": 1,
         "category": "${category}",
         "title": "15자 이내 한줄 요약 제목",
-        "body": "화면에 직접 표기될 격식 있고 자연스러운 줄글 형태의 뉴스 내용 (첫째/둘째 등 기호 일절 없음)",
+        "body": "화면에 직접 표기될 격식 있고 자연스러운 4~6문장 줄글 뉴스 내용 (핵심 사실, 배경, 영향, 전망 포함. 첫째/둘째 등 기호 일절 없음)",
         "time": "${currentMonth}.${currentDate} 오전 08:00",
         "source_name": "연합뉴스",
-        "source_url": "https://www.yna.co.kr/view/AKR20260713000100001?section=safe/news"
+        "source_url": "검색 결과에서 복사한 실제 상세 기사 URL"
       }
     ]
   `;
 
-  // ===== 1단계: 구글 API에 직접 물어서 사용 가능한 모델 자동 탐색 =====
-  let discoveredModels = [];
-  
-  for (const version of ['v1beta', 'v1']) {
-    try {
-      const listUrl = `https://generativelanguage.googleapis.com/${version}/models?key=${apiKey}`;
-      const listResp = await fetch(listUrl);
-      if (listResp.ok) {
-        const listData = await listResp.json();
-        if (listData.models) {
-          // generateContent를 지원하는 모델만 필터링
-          const genModels = listData.models
-            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
-            .map(m => ({ name: m.name.replace('models/', ''), version }));
-          discoveredModels.push(...genModels);
-        }
-      }
-    } catch (e) {
-      console.warn(`${version} 모델 목록 조회 실패:`, e);
-    }
-  }
-
-  // flash 모델을 우선하도록 정렬 (속도 빠르고 무료 쿼터 넉넉)
-  discoveredModels.sort((a, b) => {
-    const aFlash = a.name.includes('flash') ? 0 : 1;
-    const bFlash = b.name.includes('flash') ? 0 : 1;
-    if (aFlash !== bFlash) return aFlash - bFlash;
-    // 최신 버전 숫자가 큰 것을 우선
-    return b.name.localeCompare(a.name);
-  });
-
-  // 자동 탐색 실패 시 기본 후보 목록 사용
-  if (discoveredModels.length === 0) {
-    const fallbackNames = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
-    for (const name of fallbackNames) {
-      discoveredModels.push({ name, version: 'v1beta' });
-      discoveredModels.push({ name, version: 'v1' });
-    }
-  }
-
-  console.log(`🔍 [${category}] 탐색된 모델 ${discoveredModels.length}개:`, discoveredModels.map(m => `${m.version}/${m.name}`).join(', '));
-
+  // 빠른 로드를 위해 매 카테고리마다 모델 목록 API를 조회하지 않고 검색 지원 Flash 모델을 바로 시도한다.
+  const discoveredModels = options.fastFirst ? FIRST_NEWS_MODEL_CANDIDATES : FAST_NEWS_MODEL_CANDIDATES;
+  console.log(`⚡ [${category}] 빠른 검색 모델 ${discoveredModels.length}개 시도:`, discoveredModels.map(m => `${m.version}/${m.name}`).join(', '));
   // ===== 2단계: 탐색된 모델로 순차적 뉴스 생성 시도 =====
   let lastError = '사용 가능한 Gemini 모델을 찾지 못했습니다.';
 
@@ -883,7 +1013,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
 
     let response;
     try {
-      response = await fetch(url, {
+      response = await rateLimitedFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
@@ -896,7 +1026,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
       let errMsg = '';
       try {
         const errJson = await response.json();
-        if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
+        errMsg = errJson.error?.message || JSON.stringify(errJson);
       } catch (_) {}
 
       // 인증 오류만 즉시 중단
@@ -904,33 +1034,53 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
         throw new Error('API 키 오류: API 키가 유효하지 않거나 권한이 없습니다. 구글 AI Studio에서 키를 재발급 받으세요.');
       }
 
-      // tools 파라미터 오류(400)일 때 tools 없이 한 번 더 재시도
-      if (response.status === 400 && version === 'v1beta') {
-        console.warn(`${version}/${model} tools 파라미터 오류, tools 제거 후 재시도...`);
+      if (response.status === 429) {
+        const retryMs = Math.min(extractRetryDelayMs(errMsg) || 45000, 70000);
+        const retrySeconds = Math.ceil(retryMs / 1000);
+        lastError = `[${version}/${model}] 요청 한도 초과, ${retrySeconds}초 후 재시도`;
+        console.warn(lastError, errMsg);
+        updatePlayerStatus('요청 한도 대기 중', `Gemini 무료 요청 한도에 도달했습니다. ${retrySeconds}초 후 자동으로 다시 시도합니다...`);
+        await sleep(retryMs);
+
         try {
-          delete requestBody.tools;
-          const retryResp = await fetch(url, {
+          response = await rateLimitedFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
           });
-          if (retryResp.ok) {
-            response = retryResp; // 성공하면 이 응답을 사용
-          } else {
-            lastError = `[${version}/${model}] ${errMsg}`;
-            console.warn(`모델 ${version}/${model} 재시도 실패(${retryResp.status}), 다음 모델로...`);
-            continue;
+        } catch (netErr) {
+          throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
+        }
+
+        if (!response.ok) {
+          const retryStatus = response.status;
+          let retryErrMsg = '';
+          try {
+            const retryErrJson = await response.json();
+            retryErrMsg = retryErrJson.error?.message || JSON.stringify(retryErrJson);
+          } catch (_) {}
+          lastError = `[${version}/${model}] 요청 한도 재시도 실패: ${retryErrMsg || response.statusText}`;
+          console.warn(lastError);
+          if (retryStatus === 429) {
+            throw new Error(`Gemini 무료 요청 한도에 도달했습니다. ${retrySeconds}초 대기 후에도 한도가 풀리지 않았습니다. 잠시 뒤 다시 시도해 주세요.`);
           }
-        } catch (_) {
           continue;
         }
-      } else {
-        lastError = `[${version}/${model}] ${errMsg || response.statusText}`;
-        console.warn(`모델 ${version}/${model} 사용 불가(${response.status}), 다음 모델로 폴백...`);
-        continue;
+      }
+
+      if (!response.ok) {
+        // 검색 도구 없이 재시도하면 모델이 과거 학습 데이터로 뉴스를 만들 수 있으므로 폐기한다.
+        if (response.status === 400 && version === 'v1beta') {
+          lastError = `[${version}/${model}] 검색 도구 사용 실패: ${errMsg || response.statusText}`;
+          console.warn(`모델 ${version}/${model} 검색 도구 사용 실패, 다음 모델로...`);
+          continue;
+        } else {
+          lastError = `[${version}/${model}] ${errMsg || response.statusText}`;
+          console.warn(`모델 ${version}/${model} 사용 불가(${response.status}), 다음 모델로 폴백...`);
+          continue;
+        }
       }
     }
-
     // 성공한 경우 파싱 진행
     const data = await response.json();
     
@@ -982,7 +1132,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
         chunks.forEach(chunk => {
           const uri = chunk.web?.uri;
           const title = chunk.web?.title;
-          if (uri && uri.startsWith('http')) {
+          if (uri && isLikelyDetailedArticleUrl(uri) && !verifiedUrls.includes(uri)) {
             verifiedUrls.push(uri);
             verifiedTitles.push(title || '');
           }
@@ -991,8 +1141,13 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
         console.warn('구글 그라운딩 메타데이터 추출 실패:', e);
       }
 
+      if (verifiedUrls.length === 0) {
+        lastError = `모델 ${model}: 검색 근거가 없어 최신 뉴스 여부를 검증할 수 없음`;
+        continue;
+      }
+
       // 출처 정보 필드명 강제 보정 및 안전화 조치 (품질 강화)
-      return result.map((item, idx) => {
+      const normalizedItems = result.map((item, idx) => {
         let sourceName = item.source_name || item.sourceName || item.source || item.origin || '';
         let sourceUrl = item.source_url || item.sourceUrl || item.url || item.link || '';
 
@@ -1003,7 +1158,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
                                   sourceUrl.includes('example.com') ||
                                   !sourceUrl.startsWith('http');
 
-        if (isBrokenOrFakeUrl && verifiedUrls.length > 0) {
+        if ((isBrokenOrFakeUrl || !isLikelyDetailedArticleUrl(sourceUrl)) && verifiedUrls.length > 0) {
           // 구글 검색 실제 출처에서 실존하는 전체 URL 주소를 가져와 강제 덮어쓰기
           sourceUrl = verifiedUrls[idx % verifiedUrls.length];
         }
@@ -1029,16 +1184,27 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1) {
           }
         }
 
+        const fallbackTime = `${currentMonth}.${currentDate} ${Number(kstInfo.hour) >= 12 ? '오후' : '오전'} ${Number(kstInfo.hour) % 12 || 12}:${kstInfo.minute}`;
+        const normalizedTime = isRecentNewsTime(item.time, now) ? item.time : fallbackTime;
+
         return {
           id: item.id || 1,
           category: item.category || category,
           title: item.title || '최신 속보 브리핑',
           body: item.body || '',
-          time: item.time || `${currentMonth}.${currentDate} 오전 08:00`,
+          time: normalizedTime,
           source_name: sourceName.trim(),
           source_url: sourceUrl.trim()
         };
       });
+
+      const verifiedItems = normalizedItems.filter(item => isLikelyDetailedArticleUrl(item.source_url) && item.body && item.body.trim());
+      if (verifiedItems.length === 0) {
+        lastError = `모델 ${model}: 최근 24시간 이내 상세 기사 URL을 가진 뉴스가 없음`;
+        continue;
+      }
+
+      return verifiedItems.slice(0, count);
     } catch (parseErr) {
       console.error(`파싱 실패 (${model}):`, rawText);
       lastError = `JSON 파싱 실패 (${model})`;
@@ -1202,6 +1368,23 @@ function togglePlayPause() {
   }
 }
 
+function continueWhenNextNewsArrives(index) {
+  if (!state.isPlaying || state.isPaused) return;
+
+  if (index + 1 < state.newsList.length) {
+    playNewsAtIndex(index + 1);
+    return;
+  }
+
+  if (backgroundFetchPending > 0) {
+    updatePlayerStatus('다음 뉴스 준비 중', '나머지 뉴스를 불러오는 중입니다. 잠시 후 이어서 읽습니다...');
+    setTimeout(() => continueWhenNextNewsArrives(index), 900);
+    return;
+  }
+
+  stopSpeech();
+  updatePlayerStatus('낭독이 모두 끝났습니다', '오늘도 활기찬 아침 보내세요!');
+}
 // 특정 뉴스 낭독 시작
 function playNewsAtIndex(index, isPlaylistStart = false) {
   if (index < 0 || index >= state.newsList.length) {
@@ -1267,9 +1450,7 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
       if (index + 1 < state.newsList.length) {
         playNewsAtIndex(index + 1);
       } else {
-        // 모든 뉴스를 읽었을 때
-        stopSpeech();
-        updatePlayerStatus('낭독이 모두 끝났습니다', '오늘도 활기찬 아침 보내세요!');
+        continueWhenNextNewsArrives(index);
       }
     }
   };
