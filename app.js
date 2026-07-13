@@ -19,6 +19,13 @@ const GEMINI_QUOTA_RETRY_PADDING_MS = 1500;
 let nextGeminiRequestAt = 0;
 let geminiRequestQueue = Promise.resolve();
 
+// 구글 뉴스 RSS 피드 실시간 수집 설정 (API 키 없이도 최신 뉴스 제공)
+const GOOGLE_NEWS_RSS_FETCH_TIMEOUT_MS = 8000;
+const GOOGLE_NEWS_CORS_PROXIES = [
+  'https://api.allorigins.win/raw?url=',
+  'https://corsproxy.io/?'
+];
+
 let state = {
   categories: ['정치', '경제', '증시', '과학', '날씨', '사회', '스포츠', '문화', 'AI뉴스', '건강', '연예', '산업'],
   prompt: '',
@@ -651,6 +658,116 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
   return results;
 }
 
+// ====================================================
+// 구글 뉴스 RSS 실시간 수집 함수 (API 키 불필요)
+// CORS 프록시를 경유해 구글 뉴스 RSS 피드를 파싱하여
+// 실제 최신 뉴스 헤드라인을 수집합니다.
+// ====================================================
+async function fetchGoogleRSSNews(category, count = 1) {
+  // 한국어 카테고리 → 구글 뉴스 토픽 매핑
+  const topicMap = {
+    '정치': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRFZ4ZERBU0FoUnJieWdBUAE',
+    '경제': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGx6TVdZU0FoUnJieWdBUAE',
+    '증시': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGx6TVdZU0FoUnJieWdBUAE',
+    '산업': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGx6TVdZU0FoUnJieWdBUAE',
+    '과학': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGRqTVhFU0FoUnJieWdBUAE',
+    'AI뉴스': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRGRqTVhFU0FoUnJieWdBUAE',
+    '스포츠': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRFp1ZEdvU0FoUnJieWdBUAE',
+    '문화': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNREpxYW5RU0FoUnJieWdBUAE',
+    '연예': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNREpxYW5RU0FoUnJieWdBUAE',
+    '사회': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNRFp0Y1RjU0FoUnJieWdBUAE',
+    '건강': 'CAAqIQgKIhtDQkFTRGdvSUwyMHZNR3QwTlRFU0FoUnJieWdBUAE'
+  };
+
+  // 토픽 코드가 없는 카테고리(날씨 등)는 검색 쿼리 방식 사용
+  const topicCode = topicMap[category];
+  let rssUrl;
+  if (topicCode) {
+    rssUrl = `https://news.google.com/rss/topics/${topicCode}?hl=ko&gl=KR&ceid=KR:ko`;
+  } else {
+    rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(category + ' 뉴스')}&hl=ko&gl=KR&ceid=KR:ko`;
+  }
+
+  // CORS 프록시 순차 시도
+  for (const proxy of GOOGLE_NEWS_CORS_PROXIES) {
+    try {
+      const proxyUrl = `${proxy}${encodeURIComponent(rssUrl)}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), GOOGLE_NEWS_RSS_FETCH_TIMEOUT_MS);
+
+      const resp = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timer);
+
+      if (!resp.ok) continue;
+      const xmlText = await resp.text();
+      if (!xmlText || !xmlText.includes('<rss')) continue;
+
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+      const items = xmlDoc.querySelectorAll('item');
+      if (items.length === 0) continue;
+
+      const result = [];
+      const maxCount = Math.min(items.length, count);
+
+      for (let i = 0; i < maxCount; i++) {
+        const item = items[i];
+        const rawTitle = item.querySelector('title')?.textContent || '';
+        const link = item.querySelector('link')?.textContent || '';
+        const pubDate = item.querySelector('pubDate')?.textContent || '';
+        const sourceEl = item.querySelector('source');
+        const sourceName = sourceEl?.textContent || '뉴스 원문';
+
+        // 구글 뉴스 RSS 제목에서 "제목 - 언론사" 패턴의 언론사 부분 제거
+        let title = rawTitle;
+        const hyphenIdx = rawTitle.lastIndexOf(' - ');
+        if (hyphenIdx !== -1) {
+          title = rawTitle.substring(0, hyphenIdx).trim();
+        }
+        // 제목 15자 제한 (카드 UI 가독성)
+        if (title.length > 15) {
+          title = title.substring(0, 15) + '…';
+        }
+
+        // 보도 시각 파싱
+        let timeStr = '오늘';
+        try {
+          const d = new Date(pubDate);
+          if (!isNaN(d.getTime())) {
+            const h = d.getHours();
+            timeStr = `${d.getMonth() + 1}.${d.getDate()} ${h >= 12 ? '오후' : '오전'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`;
+          }
+        } catch (_) {}
+
+        // TTS 낭독용 자연스러운 본문 구성
+        const body = `${sourceName}에서 보도한 뉴스입니다. ${rawTitle.lastIndexOf(' - ') !== -1 ? rawTitle.substring(0, rawTitle.lastIndexOf(' - ')).trim() : rawTitle}. 더 자세한 내용은 출처 링크를 참고해 주세요.`;
+
+        result.push({
+          id: Date.now() + i,
+          category: category,
+          title: title,
+          body: body,
+          time: timeStr,
+          source_name: sourceName,
+          source_url: link
+        });
+      }
+
+      if (result.length > 0) {
+        console.log(`📡 구글 뉴스 RSS로 [${category}] 실시간 뉴스 ${result.length}건 수집 완료`);
+        return result;
+      }
+    } catch (e) {
+      console.warn(`CORS 프록시 시도 실패 (${proxy}):`, e.message);
+      continue;
+    }
+  }
+
+  // 모든 프록시 실패 시 → 모의 뉴스 폴백
+  console.warn(`[${category}] 구글 뉴스 RSS 수집 전체 실패, 샘플 뉴스로 대체`);
+  return getMockNewsForCategory(category, 15, count);
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -839,13 +956,20 @@ async function fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sess
   }
 
   backgroundFetchPending += plan.length;
+  const useRSS = !apiKey || apiKey.trim() === '';
   await Promise.all(plan.map(async ({ category, count }) => {
     try {
-      const items = await fetchGeminiNewsForCategory(apiKey, category, prompt, count);
+      const items = useRSS
+        ? await fetchGoogleRSSNews(category, count)
+        : await fetchGeminiNewsForCategory(apiKey, category, prompt, count);
       if (sessionId !== currentFetchSession) return;
       appendFetchedNewsItems(items, targetTotal);
     } catch (err) {
       console.warn(`${category} 카테고리 ${attempt + 1}차 보충 검색 실패:`, err);
+      // RSS 실패 시에도 샘플 뉴스로 폴백
+      if (useRSS && sessionId === currentFetchSession) {
+        appendFetchedNewsItems(getMockNewsForCategory(category, 25 + attempt * 20, count), targetTotal);
+      }
     } finally {
       backgroundFetchPending = Math.max(0, backgroundFetchPending - 1);
     }
@@ -896,9 +1020,9 @@ async function fetchNews() {
     if (hasApiKey) {
       firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt, firstBatchCount, { fastFirst: true });
     } else {
-      // 로딩 체감 가상 대기 (0.3초)
-      await new Promise(resolve => setTimeout(resolve, 300));
-      firstNewsItems = getMockNewsForCategory(firstCategory, 15, firstBatchCount);
+      // API 키 없이 구글 뉴스 RSS 실시간 수집
+      updatePlayerStatus('실시간 뉴스 수집 중', `구글 뉴스에서 [${firstCategory}] 최신 속보를 검색하는 중입니다...`);
+      firstNewsItems = await fetchGoogleRSSNews(firstCategory, firstBatchCount);
     }
 
     // 비동기 실행 도중 세션이 만료되었는지 확인
@@ -919,16 +1043,18 @@ async function fetchNews() {
       warningBanner.style.marginBottom = '16px';
       warningBanner.innerHTML = `
         <div style="display: flex; align-items: flex-start; gap: 12px;">
-          <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent); font-size: 18px; margin-top: 2px;"></i>
+          <i class="fa-solid fa-rss" style="color: var(--primary); font-size: 18px; margin-top: 2px;"></i>
           <div>
-            <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: var(--text-primary);">오프라인 모의(샘플) 뉴스 모드 구동 중</h4>
+            <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: var(--text-primary);">📡 구글 뉴스 실시간 피드 모드</h4>
             <p style="margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.4;">
-              현재 설정에 <strong>Gemini API 키가 입력되지 않아</strong> 미리 정의된 모의 뉴스(샘플 기사)가 표출되고 있습니다. 
-              오늘의 실시간 24시간 속보를 직접 수집하고 상세 원문 기사를 확인하려면, 우측 상단 <strong>설정 아이콘(⚙️)</strong>을 클릭해 Gemini API 키를 입력해 주세요.
+              구글 뉴스 RSS를 통해 <strong>실시간 최신 뉴스 헤드라인</strong>을 자동 수집하여 제공합니다.
+              AI 요약 기능을 사용하려면 우측 상단 <strong>설정(⚙️)</strong>에서 Gemini API 키를 입력하세요.
             </p>
           </div>
         </div>
       `;
+      warningBanner.style.borderColor = 'var(--primary)';
+      warningBanner.style.background = 'rgba(99, 102, 241, 0.08)';
       grid.appendChild(warningBanner);
     }
 
