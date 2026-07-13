@@ -1369,8 +1369,10 @@ function updateProgressBar(index) {
 
 // 플레이어 안내 텍스트 출력
 function updatePlayerStatus(title, desc) {
-  document.getElementById('current-reading-title').innerText = title;
-  document.getElementById('current-reading-desc').innerText = desc;
+  const titleEl = document.getElementById('current-reading-title');
+  const descEl = document.getElementById('current-reading-desc');
+  if (titleEl) titleEl.innerText = title;
+  if (descEl) descEl.innerText = desc;
 }
 
 // ====================================================
