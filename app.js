@@ -610,15 +610,21 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     for (const model of MODEL_CANDIDATES) {
       const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
       
+      const requestBody = {
+        contents: [{ parts: [{ text: promptText }] }]
+      };
+
+      // v1beta 버전일 때만 실시간 구글 검색 그라운딩 활성화 (v1 안정 버전은 tools 필드를 지원하지 않아 에러 유발)
+      if (version === 'v1beta') {
+        requestBody.tools = [{ google_search: {} }];
+      }
+
       let response;
       try {
         response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: promptText }] }],
-            tools: [{ google_search: {} }] // 실시간 구글 검색 그라운딩 활성화
-          })
+          body: JSON.stringify(requestBody)
         });
       } catch (netErr) {
         throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
