@@ -582,13 +582,14 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     ]
   `;
 
-  // 현재 시점에서 지원되는 모델 목록 (우선순위 순)
+  // 무료 티어(Free Tier)가 있는 모델을 최우선 배치
+  // gemini-2.5-pro 등 유료 전용 모델은 목록에서 제외
   const MODEL_CANDIDATES = [
-    'gemini-2.5-flash',
-    'gemini-2.5-pro',
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
+    'gemini-2.5-flash',
     'gemini-1.5-flash-latest',
+    'gemini-1.5-flash',
     'gemini-pro'
   ];
 
@@ -623,14 +624,25 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
           }
         } catch (_) {}
 
-        // 모델이 없는 경우(404) 다음 모델로 폴백
-        if (response.status === 404 || (errMsg && errMsg.includes('not found'))) {
+        // 404(모델 없음) 또는 429(쿼터 초과/무료티어 불가) → 다음 모델로 폴백
+        if (
+          response.status === 404 ||
+          response.status === 429 ||
+          (errMsg && errMsg.includes('not found')) ||
+          (errMsg && errMsg.includes('quota')) ||
+          (errMsg && errMsg.includes('RESOURCE_EXHAUSTED'))
+        ) {
           lastError = `[${version}/${model}] ${errMsg}`;
-          console.warn(`모델 ${version}/${model} 미지원, 다음 모델로 폴백...`);
+          console.warn(`모델 ${version}/${model} 사용 불가(${response.status}), 다음 모델로 폴백...`);
           continue;
         }
 
-        // 키 오류(401, 403) 등 다른 오류는 즉시 throw
+        // 키 인증 오류(401, 403)는 즉시 사용자에게 알림
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(`API 키 오류: API 키가 유효하지 않거나 권한이 없습니다. 구글 AI Studio에서 키를 재발급 받으세요.`);
+        }
+
+        // 기타 오류
         throw new Error(`구글 API 오류 (${version}/${model}): ${errMsg || response.statusText}`);
       }
 
