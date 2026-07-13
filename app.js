@@ -613,7 +613,8 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: promptText }] }]
+            contents: [{ parts: [{ text: promptText }] }],
+            tools: [{ google_search: {} }] // 실시간 구글 검색 그라운딩 활성화
           })
         });
       } catch (netErr) {
