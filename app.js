@@ -639,6 +639,30 @@ async function fetchNews() {
     const grid = document.getElementById('news-grid');
     grid.innerHTML = '';
 
+    // API Key 미등록 시 최상단 경고 안내 배너 추가
+    if (!hasApiKey) {
+      const warningBanner = document.createElement('div');
+      warningBanner.className = 'news-card';
+      warningBanner.style.borderColor = 'var(--accent)';
+      warningBanner.style.background = 'rgba(239, 68, 68, 0.08)';
+      warningBanner.style.gridColumn = '1 / -1';
+      warningBanner.style.padding = '16px';
+      warningBanner.style.marginBottom = '16px';
+      warningBanner.innerHTML = `
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent); font-size: 18px; margin-top: 2px;"></i>
+          <div>
+            <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: var(--text-primary);">오프라인 모의(샘플) 뉴스 모드 구동 중</h4>
+            <p style="margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+              현재 설정에 <strong>Gemini API 키가 입력되지 않아</strong> 미리 정의된 모의 뉴스(샘플 기사)가 표출되고 있습니다. 
+              오늘의 실시간 24시간 속보를 직접 수집하고 상세 원문 기사를 확인하려면, 우측 상단 <strong>설정 아이콘(⚙️)</strong>을 클릭해 Gemini API 키를 입력해 주세요.
+            </p>
+          </div>
+        </div>
+      `;
+      grid.appendChild(warningBanner);
+    }
+
     if (firstNewsItems && firstNewsItems.length > 0) {
       firstNewsItems.forEach(item => {
         const newIdx = state.newsList.length;
@@ -712,12 +736,15 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt) {
   const promptText = `
     역할: 전문 아침 뉴스 앵커 및 아나운서
     
-    시간 및 검색 규정 (가장 중요):
-    현재 대한민국의 로컬 시각은 한국 표준시(KST) 기준 [ ${currentLocalTimeStr} ] 입니다.
-    1. 반드시 google_search 도구(실시간 인터넷 검색)를 활용하여, 현재 시각 기준 **최근 24시간 이내**에 대한민국 메이저 언론사 등에 실제 보도된 실시간 최신 뉴스 및 사건들만 검색하여 요약 기재해야 합니다.
-    2. 과거에 학습한 옛날 데이터나 가공의 기사를 들려주어서는 절대로 안 됩니다. 무조건 24시간 이내의 실시간 팩트 정보만 취급하세요.
+    시간 및 검색 규정 (가장 엄격히 준수):
+    현재 대한민국의 로컬 시각은 한국 표준시(KST) 기준 [ ${currentLocalTimeStr} ] 이며, 오늘은 [ 2026년 7월 13일 ] 입니다.
+    1. **반드시 google_search 도구를 적극 사용해 오늘 현재 시각 기준 "최근 24시간 이내"에 대한민국 메이저 언론사 등에 실제 보도된 실시간 최신 뉴스 및 사건들만 검색하여 요약 기재해야 합니다.**
+    2. 과거에 이미 학습한 옛날 데이터나 가공의 기사를 들려주어서는 절대로 안 됩니다. 무조건 오늘 실제 발생한 시사/뉴스 검색 결과만 사용하십시오.
     3. 수집된 최신 뉴스의 정확한 보도 시각을 바탕으로 JSON의 "time" 필드를 채우십시오.
-    4. **검색한 원본 뉴스 기사의 정확한 출처 언론사명(예: 연합뉴스, YTN 등)과 실제 보도 상세 링크 URL을 알아내어 각각 "source_name" 및 "source_url" 필드에 기재하십시오. source_url에는 네이버 홈이나 언론사 메인(예: yna.co.kr) 같은 단순 도메인을 절대 기재해서는 안 되며, 기사 본문 전체를 완벽하게 확인할 수 있는 기사 상세 본문 주소(Full Path URL)를 검색 데이터에서 그대로 가져와 정확히 입력하십시오.**
+    4. **출처 검증 규정 (극도로 중요)**:
+       - 검색한 원본 뉴스 기사의 정확한 출처 언론사명(예: 연합뉴스, YTN 등)을 "source_name"에 정확하게 적으십시오.
+       - "source_url"에는 반드시 사용자가 클릭했을 때 해당 뉴스의 내용 전체를 직접 눈으로 대조하여 검증해볼 수 있는 **그 뉴스 기사의 고유 상세 기사 본문 URL 전체 주소(예: https://news.naver.com/... 또는 https://www.yna.co.kr/view/AKR2026... 등 기사 고유 식별자가 포함된 원본 링크)**를 기입하십시오.
+       - 네이버 홈(naver.com), 다음 홈(daum.net), 언론사 메인 홈(yna.co.kr, ytn.co.kr 등)과 같은 단순 메인 도메인 주소는 사용자가 뉴스를 검증할 수 없으므로 **절대로 기재하지 마십시오.** 상세 기사 원문 주소만 검색 결과에서 그대로 복사하여 입력해야 합니다.
 
     요청사항: 
     사용자가 선택한 관심 분야는 [ ${category} ] 입니다.
