@@ -754,15 +754,22 @@ async function fetchNaverRSSNews(category, count = 1) {
           }
         } catch (_) {}
 
-        // TTS 낭독용 본문 구성 (총 400자 내외로 2배 증대)
+        // 본문(요약)을 약 250글자 내외로 정교하게 맞춤 조정 (사용자 피드백 반영)
         const fullTitle = rawTitle.trim();
-        let bodyText = cleanDesc;
-        if (bodyText.length < 150) {
-          bodyText += ` 본 뉴스 기사는 ${category} 카테고리의 주요 이슈와 당일의 주요 화제를 중심으로 보도하고 있습니다. 해당 사안에 대한 추가적인 사회적 파장 및 전문가 분석 리포트는 출처인 ${sourceName}의 실시간 데스크를 통해 지속적으로 업데이트될 예정입니다.`;
-        } else {
-          bodyText += ` 이 보도자료는 향후 해당 분야의 정책 방향이나 대중적 트렌드에 중요한 영향을 미칠 것으로 예상되며, 업계 관계자들의 높은 주목을 받고 있습니다.`;
+        let mainDesc = cleanDesc;
+        if (mainDesc.length > 180) {
+          mainDesc = mainDesc.substring(0, 177) + '...';
         }
-        const body = `${category} 분야 실시간 브리핑입니다. ${sourceName} 보도에 따르면 기사 제목은 '${fullTitle}' 입니다. [상세 내용 요약] ${bodyText} 본 보도자료의 세부적 맥락과 후속 속보 기사는 아래 카드에 표시된 ${sourceName} 원본 링크를 직접 클릭하여 실시간으로 상세 내용을 확인해 보실 수 있습니다.`;
+        const templateIntro = `[${category} 속보] ${sourceName} 보도에 의하면, `;
+        const templateOutro = ` 추가 상세 분석 및 실시간 후속 보도는 본문의 ${sourceName} 뉴스 링크를 통해 즉시 확인 가능합니다.`;
+        let body = `${templateIntro}${mainDesc}${templateOutro}`;
+        if (body.length < 235) {
+          const filler = ` 본 뉴스는 ${category} 분야의 최신 현안을 신속하게 반영한 보도이며, 업계 트렌드 분석에 큰 도움이 됩니다.`;
+          body += filler;
+        }
+        if (body.length > 255) {
+          body = body.substring(0, 247) + '...';
+        }
 
         result.push({
           id: Date.now() + i,
