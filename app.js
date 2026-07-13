@@ -441,6 +441,14 @@ function bindUIEvents() {
       }
     });
   });
+
+  // --- 퀵 설정 버튼 제어 ---
+  const btnQuickSettings = document.getElementById('btn-quick-settings');
+  if (btnQuickSettings) {
+    btnQuickSettings.addEventListener('click', () => {
+      openModal('modal-settings');
+    });
+  }
 }
 
 // 키보드 단축키
