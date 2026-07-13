@@ -20,10 +20,11 @@ let nextGeminiRequestAt = 0;
 let geminiRequestQueue = Promise.resolve();
 
 // 구글 뉴스 RSS 피드 실시간 수집 설정 (API 키 없이도 최신 뉴스 제공)
-const GOOGLE_NEWS_RSS_FETCH_TIMEOUT_MS = 8000;
+const GOOGLE_NEWS_RSS_FETCH_TIMEOUT_MS = 15000;
 const GOOGLE_NEWS_CORS_PROXIES = [
   'https://api.allorigins.win/raw?url=',
-  'https://corsproxy.io/?'
+  'https://corsproxy.io/?',
+  'https://api.codetabs.com/v1/proxy?quest='
 ];
 
 let state = {
