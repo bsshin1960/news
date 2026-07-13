@@ -665,8 +665,8 @@ async function fetchNews() {
 
     if (firstNewsItems && firstNewsItems.length > 0) {
       firstNewsItems.forEach(item => {
-        const newIdx = state.newsList.length;
         state.newsList.push(item);
+        const newIdx = state.newsList.length - 1;
         appendNewsCard(item, newIdx);
       });
 
@@ -709,8 +709,8 @@ async function fetchNews() {
 
       if (items && items.length > 0) {
         items.forEach(item => {
-          const newIdx = state.newsList.length;
           state.newsList.push(item);
+          const newIdx = state.newsList.length - 1;
           appendNewsCard(item, newIdx);
         });
 
