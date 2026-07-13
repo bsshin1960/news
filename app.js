@@ -839,23 +839,35 @@ function renderNewsList(list) {
     return;
   }
 
+  let lastCategory = '';
   list.forEach((news, index) => {
+    // 이전 카테고리와 다르면 그룹 헤더 추가 (박스 밖 왼쪽 위)
+    if (news.category !== lastCategory) {
+      const groupHeader = document.createElement('div');
+      groupHeader.className = 'category-group-header';
+      groupHeader.innerHTML = `
+        <span class="category-group-title ${news.category}">${news.category}</span>
+        <span class="category-group-line"></span>
+      `;
+      grid.appendChild(groupHeader);
+      lastCategory = news.category;
+    }
+
     const card = document.createElement('article');
     card.className = 'news-card';
     card.id = `news-card-${index}`;
     card.innerHTML = `
       <div>
-        <div class="card-header">
-          <span class="category-tag ${news.category}">${news.category}</span>
-          <div class="card-header-right">
-            <span class="card-time">${news.time}</span>
-            <button class="btn-card-listen" data-index="${index}">
-              <i class="fa-solid fa-volume-high"></i>
-            </button>
-          </div>
+        <div class="card-header" style="justify-content: flex-end; margin-bottom: 8px; display: flex; align-items: center;">
+          <span class="card-time">${news.time}</span>
         </div>
-        <h2 class="card-title">${news.title}</h2>
-        <p class="card-body">${cleanNewsBodyText(news.body, news.category)}</p>
+        <div class="card-title-row" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px;">
+          <h2 class="card-title" style="margin: 0; flex: 1;">${news.title}</h2>
+          <button class="btn-card-listen" data-index="${index}" style="flex-shrink: 0; margin-top: 2px;">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+        <p class="card-body" style="margin-bottom: 0;">${cleanNewsBodyText(news.body, news.category)}</p>
       </div>
     `;
     grid.appendChild(card);
