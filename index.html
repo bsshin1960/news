@@ -274,9 +274,17 @@
             </div>
           </div>
 
-          <!-- 내부 저장용 (숨김) -->
-          <input type="hidden" id="prompt-input" value="">
-          <input type="hidden" id="api-key-input" value="">
+          <!-- 복구된 API Key 및 요구사항 입력 영역 -->
+          <div class="form-group">
+            <label class="form-label" for="api-key-input">Gemini API Key</label>
+            <input type="password" id="api-key-input" placeholder="Gemini API 키를 입력하세요 (비어있으면 실시간 RSS 뉴스 제공)">
+            <span class="form-help">Google AI Studio에서 발급받은 API 키를 입력하면 실시간 구글 검색 뉴스 브리핑이 동작합니다.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="prompt-input">추가 요구사항 (프롬프트)</label>
+            <textarea id="prompt-input" rows="3" placeholder="예: 바쁜 아침에 핵심만 쉽게 요약해줘."></textarea>
+          </div>
 
           <div class="divider"></div>
 

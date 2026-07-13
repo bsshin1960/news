@@ -46,7 +46,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 1,
     category: '정치',
     title: '정부, 저출생 주거·양육 특별대책 발표',
-    body: '정부가 저출생 위기 극복을 위해 신혼부부 및 다자녀 가구를 대상으로 주택 청약 기준을 대폭 완화하고, 영유아 수당 지급 기간을 확대하는 특별 정책을 발표했습니다. 이번 정책은 실질적인 가구 부담 경감을 목표로 하고 있습니다.',
+    body: '정부가 국가적 초비상 사태인 저출생 위기를 극복하기 위해 신혼부부 및 다자녀 가구를 대상으로 주택 청약 신청 기준을 대폭 완화하고 영유아 수당의 지급 기간과 액수를 획기적으로 확대하는 범정부 차원의 특별 종합 대책을 공식 발표했습니다. 이번 대책은 내 집 마련 기회 확대와 직접적인 현금성 지원을 결합하여 자녀 양육 가정의 실질적인 주거비 및 교육비 부담을 획기적으로 낮추는 것을 최우선 목표로 삼고 있으며, 향후 인구 구조 정상화에 긍정적인 신호탄이 될 것으로 관계자들은 크게 기대하고 있습니다.',
     time: '오전 07:15',
     source_name: '연합뉴스',
     source_url: 'https://www.yna.co.kr/view/AKR20260713000100001?section=politics/all'
@@ -55,7 +55,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 2,
     category: '경제',
     title: '유가 급락에 정유업계 비상경영 돌입',
-    body: '글로벌 수요 둔화 우려로 원유 가격이 배럴당 70달러선 아래로 떨어지면서 국내 정유 및 화학 대기업들이 긴급 비상 경영 회의를 소집했습니다. 환율 변동과 결합되어 하반기 마진 확보에 빨간불이 켜진 상황입니다.',
+    body: '글로벌 제조업 경기 침체와 수요 둔화 우려가 확산되면서 국제 원유 가격이 배럴당 70달러선 아래로 급락하자 국내 주요 정유 및 석유화학 대기업들이 비상 경영 체제에 긴급 돌입하며 사장단 특별 회의를 소집했습니다. 최근 급변하는 고환율 및 원자재 공급망 불안 리스크와 맞물려 하반기 수익성 지표인 정제마진 확보에 심각한 빨간불이 켜진 상황이며, 각 기업들은 설비 가동률 조정과 불요불급한 지출 억제 등 초긴축 재정 운영 계획을 긴급 검토하여 자구책 마련에 총력을 기울이고 있습니다.',
     time: '오전 07:30',
     source_name: '매일경제',
     source_url: 'https://www.mk.co.kr/news/economy/view/2026/07/130123'
@@ -64,7 +64,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 3,
     category: '증시',
     title: '코스피 7,000선 돌파…사상 최고치 경신',
-    body: '글로벌 초전도 반도체와 지능형 AI 로봇 수주 랠리에 힘입어 코스피 지수가 역사상 처음으로 7,000선을 가뿐히 돌파했습니다. 외국인과 기관의 폭발적인 매수세 속에 증시는 연일 사상 최고치 신기록을 경신하고 있습니다.',
+    body: '글로벌 초전도체 기술 혁신과 지능형 AI 반도체 및 첨단 휴머노이드 로봇 분야의 대규모 수주 랠리가 연이어 보도되는 가운데, 코스피 지수가 외국인과 기관 투자가들의 강력한 동반 매수세에 힘입어 역사상 처음으로 마의 7,000선을 가뿐히 돌파하며 사상 최고 신기록을 경신했습니다. 미국 연방준비제도의 금리 기조 완화 기대감과 국내 대형 기술 기업들의 호실적 달성이 기폭제가 되었으며, 증권가에서는 상승 여력이 충분하다는 낙관론과 단기 급등에 따른 밸류에이션 부담에 유의해야 한다는 목소리가 나옵니다.',
     time: '오전 08:00',
     source_name: '한국경제',
     source_url: 'https://www.hankyung.com/finance/article/202607139999a'
@@ -73,7 +73,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 4,
     category: '과학',
     title: '국내 연구진 초전도체 후보물질 발견',
-    body: '국내 대학 연구소와 국책 연구기관 공동 연구팀이 상온 극저온 경계 영역에서 강한 반자성 효과를 보이는 신소재 합성 기술을 개발했습니다. 권위 있는 과학 저널 네이처에 게재 검토 중이며 향후 에너지 송전 혁신이 기대됩니다.',
+    body: '국내 저명 대학 연구소와 정부 산하 국책 연구기관 공동 연구팀이 상온 극저온 경계 영역에서 기존 물질보다 한층 강력한 반자성 효과와 무저항 전도성을 보이는 혁신적인 초전도체 후보 물질 합성 기술을 세계 최초로 개발했습니다. 권위 있는 글로벌 과학 저널인 네이처의 최종 게재를 앞두고 있으며, 향후 무손실 에너지 초고속 송전망 및 미래형 자기부상열차, 고성능 양자컴퓨터 등의 상용화를 앞당겨 산업 생태계 전반을 통째로 바꿀 혁명적 성과로 평가받고 있습니다.',
     time: '오전 08:10',
     source_name: '동아사이언스',
     source_url: 'https://www.dongascience.com/news.php?key=202607138888'
@@ -82,7 +82,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 5,
     category: '날씨',
     title: '오늘 밤 전국 폭설·강풍 주의보 발령',
-    body: '기상청은 오늘 자정부터 중부 지방을 중심으로 순간 시속 70킬로미터 이상의 돌풍과 함께 최대 15센티미터 이상의 폭설이 내릴 것으로 예보했습니다. 내일 출근길 전국적인 빙판길 교통안전과 대중교통 이용을 신신당부했습니다.',
+    body: '기상청은 오늘 자정부터 중부 지방 및 수도권 영역을 중심으로 순간 풍속 시속 70킬로미터 이상의 강한 돌풍과 함께 최대 15센티미터 이상의 폭설이 내릴 것으로 예측하여 대설 특보를 긴급 발령했습니다. 내일 출근길에는 영하 10도 이하의 한파와 겹쳐 빙판길 교통 대란이 크게 우려되는 만큼 대중교통 이용을 생활화하고 시설물 붕괴 예방 및 노약자 낙상 사고 방지 등 사전 대비를 빈틈없이 해달라고 거듭 당부했습니다.',
     time: '오전 08:15',
     source_name: '기상청 날씨누리',
     source_url: 'https://www.weather.go.kr/w/wnuri-new/html/cop/bbs/selectBoardArticle.do?bbsId=BBS_NEWS'
@@ -91,7 +91,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 6,
     category: '사회',
     title: '경찰, 보이스피싱 AI 실시간 탐지 도입',
-    body: '경찰청은 시중 은행과 손잡고 통화 중 보이스피싱 의심 키워드와 목소리 톤의 이상 징후를 실시간 감지하여 즉시 이체를 차단하는 차세대 AI 차단 시스템을 전국 지점에 시범 적용한다고 밝혔습니다.',
+    body: '경찰청은 금융감독원 및 시중 은행들과 협력하여 통화 중 오가는 보이스피싱 의심 단어 패턴과 발화자의 미세한 목소리 톤 변화를 실시간으로 자동 분석하여 금융 범죄 의심 징후를 감지해 이체를 자동 차단하는 차세대 범죄 방지 시스템을 정식 가동했습니다. 이 첨단 AI 시스템은 전국 주요 은행 지점에 우선 시범 적용되며, 나날이 지능화되는 보이스피싱 사기 조직들의 수법으로부터 서민들의 소중한 재산 피해를 획기적으로 예방할 수 있을 것으로 내다보고 있습니다.',
     time: '오전 08:20',
     source_name: 'YTN',
     source_url: 'https://www.ytn.co.kr/_ln/0103_202607131122334455'
@@ -100,7 +100,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 7,
     category: '스포츠',
     title: '한국 골프 대표팀 세계 주니어 선수권 우승',
-    body: '한국 청소년 골프 국가대표팀이 마지막 라운드에서 침착한 버디 퍼팅 랠리를 보이며 강력한 경쟁 후보인 미국과 일본을 2타 차로 따돌리고 사상 최초 종합 단체전 금메달을 목에 걸었습니다.',
+    body: '대한민국 주니어 골프 국가대표팀이 미국 플로리다에서 개최된 세계 주니어 골프 선수권 대회 마지막 라운드에서 침착하고 정교한 아이언 샷과 버디 퍼팅 랠리를 선보이며 강력한 우승 후보국인 미국과 일본을 최종 합계 2타 차로 극적으로 따돌리고 사상 최초로 종합 단체전 우승 트로피를 차지했습니다. 차세대 골프 스타들의 투지와 침착함이 만들어낸 값진 쾌거로, 향후 세계 무대에서 활약할 한국 태극전사들의 미래를 한층 밝히는 역사적 계기가 되었습니다.',
     time: '오전 08:30',
     source_name: 'SBS 스포츠',
     source_url: 'https://sports.sbs.co.kr/news?id=SP1000020260713'
@@ -109,7 +109,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 8,
     category: '문화',
     title: '국립미술관 VR 고궁유물 기획전 개최',
-    body: '문화재청과 미술관은 최첨단 레이저 스캐닝 가상현실 렌더러 기술을 활용해 조선 시대 궁궐 내부의 왕실 생활 유물을 오감으로 실감 나게 탐험할 수 있는 신규 디지털 헤리티지 전시회를 일반에 무료 개방했습니다.',
+    body: '문화재청과 국립현대미술관은 최첨단 고해상도 3D 스캐닝 기술과 가상현실 VR 인터랙티브 엔진을 융합하여 조선 시대 왕실 생활 유물과 실제 고궁 내부를 집에서도 손쉽게 360도로 관람할 수 있는 메타버스 기획 전시를 공식 오픈했습니다. 이번 하이브리드 전시는 오프라인 미술관 공간뿐 아니라 모바일 앱과 VR 기기를 활용해 전 세계 어디서나 무료로 입체 체험할 수 있도록 접근성을 극대화하여 대중의 뜨거운 관심을 모으고 있습니다.',
     time: '오전 08:40',
     source_name: '문화일보',
     source_url: 'https://www.munhwa.com/news/view.html?no=20260713010399'
@@ -118,7 +118,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 9,
     category: 'AI뉴스',
     title: '국내 AI 연구소 감성대화 로봇 상용화',
-    body: '국내 연구진이 멀티모달 인식 알고리즘을 고도화하여 사용자의 미세한 얼굴 근육 떨림과 음성 파장을 실시간 판별하고, 그에 맞는 맞춤형 정서적 공감 대화를 주고받을 수 있는 지능형 반려 로봇 상용화 시스템을 성공적으로 발표했습니다.',
+    body: '국내 유수의 인공지능 연구소와 로봇 전문 벤처기업 공동 연구진이 멀티모달 센서 인식 알고리즘을 혁신적으로 고도화하여 사용자의 미세한 얼굴 표정 떨림과 음성 억양 파장을 실시간으로 자동 해독하고 감성적인 공감 대화를 완벽히 나눌 수 있는 지능형 반려 로봇 상용화 모델을 시장에 전격 발표했습니다. 이 로봇은 1인 가구 및 고령층 독거노인 가정의 고독감 해소와 우울증 예방 등 돌봄 서비스 분야에 신속하게 상용 배치될 계획입니다.',
     time: '오전 08:50',
     source_name: '지디넷코리아',
     source_url: 'https://zdnet.co.kr/view/?no=20260713777777'
@@ -127,7 +127,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 10,
     category: '건강',
     title: '환절기 호흡기 감염병 예방 주의보 발령',
-    body: '질병관리청은 급격한 기온 변화로 면역력이 떨어지기 쉬운 환절기를 맞아 독감 및 백일해 등 호흡기 감염병 환자가 급증하고 있다고 경고했습니다. 외출 후 손 씻기와 실내 환기 등 예방 수칙을 준수해 달라고 당부했습니다.',
+    body: '질병관리청은 최근 낮과 밤의 기온차가 10도 이상 벌어지는 환절기 기후 영향으로 면역력이 떨어지기 쉬운 취약 계층을 중심으로 독감 및 백일해 등 주요 호흡기 감염병 환자가 최근 급증함에 따라 대국민 예방 건강 주의보를 발령했습니다. 외출 후 흐르는 물에 30초 이상 손 씻기와 사람이 밀집한 장소에서의 마스크 착용, 실내 주기적 환기 등 개인위생 수칙 준수가 필수적이며 호흡기 증상 발현 시 즉시 가까운 병원을 찾아 적절한 치료를 받을 것을 강력 권고했습니다.',
     time: '오전 09:00',
     source_name: '헬스조선',
     source_url: 'https://health.chosun.com/site/data/html_dir/2026/07/13/2026071300001.html'
@@ -136,7 +136,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 11,
     category: '연예',
     title: '신인 아이돌 데뷔 동시에 글로벌 1위',
-    body: '최근 데뷔한 5인조 하이브리드 콘셉트 신인 보이그룹이 데뷔 타이틀곡 발표와 동시에 국내 주요 음원 차트는 물론 빌보드 및 글로벌 스포티파이 실시간 스트리밍 순위 1위를 휩쓸며 차세대 K-POP 주역으로 떠올랐습니다.',
+    body: '대형 기획사가 선보인 5인조 다국적 하이브리드 콘셉트 신인 보이그룹이 데뷔 타이틀곡 음원을 공식 발표함과 동시에 국내 주요 실시간 음원 차트 정상에 등극함은 물론, 미국 빌보드 메인 차트 및 글로벌 최대 음원 스트리밍 플랫폼 스포티파이의 국가별 주간 차트 1위를 단숨에 휩쓰는 무서운 돌풍을 일으키고 있습니다. 파격적인 비주얼 아트워크와 감각적인 안무 연출이 글로벌 젠지(Gen-Z) 세대의 트렌드를 정확히 저격한 덕분으로 평가됩니다.',
     time: '오전 09:10',
     source_name: '디스패치',
     source_url: 'https://www.dispatch.co.kr/202607139999'
@@ -145,7 +145,7 @@ const MOCK_NEWS_TEMPLATES = [
     id: 12,
     category: '산업',
     title: '완성차 업계 전고체 전기차 공장 착공',
-    body: '국내 주요 완성차 및 배터리 협력사 연합이 주행 거리를 대폭 늘리고 화재 위험성을 획기적으로 낮춘 꿈의 배터리, 전고체 배터리 전기차 전용 스마트 제조 공장 라인을 국내 최초로 공식 착공하고 대량 양산 돌입을 선언했습니다.',
+    body: '글로벌 완성차 대기업과 국내 대표 2차전지 배터리 협력사가 손을 잡고 1회 완충 시 주행 거리를 대폭 연장하고 화재 폭발 위험성을 획기적으로 없앤 꿈의 차세대 배터리, 즉 전고체 배터리를 적용한 하이엔드 전기차 전용 스마트 제조 메가 팩토리 공장을 국내 최초로 공식 착공했습니다. 이번 스마트 팩토리 착공은 고도화된 정밀 자동화 공정을 바탕으로 2027년 본격적인 전고체 전기차 대량 양산 및 글로벌 시장 선점을 목표로 두고 있습니다.',
     time: '오전 09:20',
     source_name: '마켓인사이트',
     source_url: 'https://marketinsight.hankyung.com/article/202607130012c'
@@ -197,6 +197,12 @@ function initStorage() {
   }
   if (savedSpeed) {
     state.speed = parseFloat(savedSpeed);
+  }
+
+  // 모바일 환경 강제 마이그레이션: 기존 1.4배속 설정이 있거나 기본값이 없을 시 1.0배속으로 자동 교정
+  if (isMobileRuntime() && (state.speed === 1.4 || !savedSpeed)) {
+    state.speed = 1.0;
+    localStorage.setItem('news_speed', '1.0');
   }
 
   // UI 컴포넌트에 바인딩
@@ -652,7 +658,8 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
       id: item.id * 100 + i, // 고유 ID 충돌 방지
       title: modifiedTitle,
       body: modifiedBody,
-      time: formattedTime
+      time: formattedTime,
+      isMock: true
     });
   }
   
@@ -754,21 +761,21 @@ async function fetchNaverRSSNews(category, count = 1) {
           }
         } catch (_) {}
 
-        // 본문(요약)을 약 250글자 내외로 정교하게 맞춤 조정 (사용자 피드백 반영)
+        // 본문(요약)을 약 500글자 내외로 정교하게 2배 확대 및 맞춤 조정
         const fullTitle = rawTitle.trim();
         let mainDesc = cleanDesc;
-        if (mainDesc.length > 180) {
-          mainDesc = mainDesc.substring(0, 177) + '...';
+        if (mainDesc.length > 400) {
+          mainDesc = mainDesc.substring(0, 397) + '...';
         }
-        const templateIntro = `[${category} 속보] ${sourceName} 보도에 의하면, `;
-        const templateOutro = ` 추가 상세 분석 및 실시간 후속 보도는 본문의 ${sourceName} 뉴스 링크를 통해 즉시 확인 가능합니다.`;
+        const templateIntro = `[${category} 주요 브리핑] 공신력 있는 언론사 ${sourceName}의 실시간 속보에 따르면, `;
+        const templateOutro = ` 본 건에 대한 보다 다각적인 입체 분석과 실시간 관련 속보들은 하단에 첨부된 ${sourceName}의 뉴스 원본 상세 링크를 방문하시면 한층 정확하고 상세하게 즉시 파악이 가능합니다.`;
         let body = `${templateIntro}${mainDesc}${templateOutro}`;
-        if (body.length < 235) {
-          const filler = ` 본 뉴스는 ${category} 분야의 최신 현안을 신속하게 반영한 보도이며, 업계 트렌드 분석에 큰 도움이 됩니다.`;
+        if (body.length < 470) {
+          const filler = ` 추가적으로 해당 ${category} 이슈는 향후 시장의 흐름과 사회적 트렌드 전반에 상당한 영향력을 미칠 것으로 관측되고 있으며, 관련 업계 전문가들 및 주요 이해관계자들 사이에서도 향후 전개 방향에 대해 깊이 있는 논의와 다각도의 분석이 매우 활발하게 이루어지고 있는 상황입니다.`;
           body += filler;
         }
-        if (body.length > 255) {
-          body = body.substring(0, 247) + '...';
+        if (body.length > 510) {
+          body = body.substring(0, 502) + '...';
         }
 
         result.push({
@@ -911,7 +918,7 @@ function isRecentNewsTime(timeText, now = new Date()) {
   if (!parsed) return false;
 
   const diffMs = now.getTime() - parsed.getTime();
-  const futureToleranceMs = 10 * 60 * 1000;
+  const futureToleranceMs = 12 * 60 * 60 * 1000; // 타임존 시차 오차 감안 12시간 확장
   const maxAgeMs = 24 * 60 * 60 * 1000;
   return diffMs >= -futureToleranceMs && diffMs <= maxAgeMs;
 }
@@ -970,14 +977,19 @@ function appendFetchedNewsItems(items, targetTotal) {
 
   return appended;
 }
-async function fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sessionId, attempt = 0) {
+async function fetchRemainingNewsByPlan(apiKey, categoryCounts, prompt, targetTotal, sessionId, attempt = 0) {
   if (sessionId !== currentFetchSession || state.newsList.length >= targetTotal || attempt >= MAX_NEWS_FILL_ATTEMPTS) return;
 
-  const missingCount = targetTotal - state.newsList.length;
-  const rotatedCategories = categories.slice(attempt % categories.length).concat(categories.slice(0, attempt % categories.length));
-  const plan = buildBackgroundNewsPlan(rotatedCategories, missingCount);
+  const plan = [];
+  for (const [category, count] of Object.entries(categoryCounts)) {
+    if (count > 0) {
+      plan.push({ category, count });
+    }
+  }
+
   if (plan.length === 0) return;
 
+  const missingCount = targetTotal - state.newsList.length;
   if (attempt === 0) {
     updatePlayerStatus('백그라운드 수집 중', `첫 소식을 낭독하는 동안 나머지 ${missingCount}개 뉴스를 병렬로 불러오는 중입니다...`);
   } else {
@@ -987,11 +999,22 @@ async function fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sess
   backgroundFetchPending += plan.length;
   await Promise.all(plan.map(async ({ category, count }) => {
     try {
-      const items = await fetchNaverRSSNews(category, count);
+      let items;
+      if (apiKey) {
+        try {
+          items = await fetchGeminiNewsForCategory(apiKey, category, prompt, count);
+        } catch (geminiErr) {
+          console.warn(`[${category}] Gemini 수집 실패, RSS로 폴백:`, geminiErr);
+          items = await fetchNaverRSSNews(category, count);
+        }
+      } else {
+        items = await fetchNaverRSSNews(category, count);
+      }
+
       if (sessionId !== currentFetchSession) return;
       appendFetchedNewsItems(items, targetTotal);
     } catch (err) {
-      console.warn(`${category} 카테고리 ${attempt + 1}차 보충 검색 실패:`, err);
+      console.warn(`${category} 카테고리 뉴스 검색 실패:`, err);
       // RSS 실패 시에도 샘플 뉴스로 폴백
       if (sessionId === currentFetchSession) {
         appendFetchedNewsItems(getMockNewsForCategory(category, 25 + attempt * 20, count), targetTotal);
@@ -1002,9 +1025,20 @@ async function fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sess
   }));
 
   if (sessionId === currentFetchSession && state.newsList.length < targetTotal) {
-    await fillNewsUntilTarget(apiKey, categories, prompt, targetTotal, sessionId, attempt + 1);
+    // 만약 에러 등으로 인해 목표 개수를 채우지 못한 경우,
+    // 다시 부족한 수량만큼 카테고리들에 배분하여 재시도한다.
+    const stillMissing = targetTotal - state.newsList.length;
+    const remainingCats = Object.keys(categoryCounts);
+    const retryPlan = {};
+    remainingCats.forEach(cat => retryPlan[cat] = 0);
+    for (let i = 0; i < stillMissing; i++) {
+      const cat = remainingCats[i % remainingCats.length];
+      retryPlan[cat]++;
+    }
+    await fetchRemainingNewsByPlan(apiKey, retryPlan, prompt, targetTotal, sessionId, attempt + 1);
   }
 }
+
 async function fetchNews() {
   currentFetchSession++;
   const thisSession = currentFetchSession;
@@ -1032,14 +1066,38 @@ async function fetchNews() {
     requestedTotal = parseInt(numMatch[1]);
   }
   requestedTotal = Math.max(1, Math.min(20, requestedTotal));
-  const firstBatchCount = 1;
 
-  // 1단계: 첫 번째 카테고리 즉각 쾌속 수집 및 낭독
+  // 각 카테고리별 수집 개수 분배 계획 수립
+  const categoryCounts = {};
+  selectedCategories.forEach(cat => categoryCounts[cat] = 0);
+  for (let i = 0; i < requestedTotal; i++) {
+    const cat = selectedCategories[i % selectedCategories.length];
+    categoryCounts[cat]++;
+  }
+
+  // 1단계: 첫 번째 뉴스 즉각 수집 및 낭독
+  // selectedCategories[0]은 i=0 루프에서 무조건 1개 이상 배정받음
   const firstCategory = selectedCategories[0];
-  updatePlayerStatus('실시간 뉴스 수집 중', `네이버 뉴스에서 [${firstCategory}] 최신 속보를 검색하는 중입니다...`);
+  categoryCounts[firstCategory]--; // 1개 선점할 것이므로 계획에서 차감
+
+  if (state.apiKey) {
+    updatePlayerStatus('실시간 뉴스 수집 중', `Gemini AI가 [${firstCategory}] 최신 속보를 검색하는 중입니다...`);
+  } else {
+    updatePlayerStatus('실시간 뉴스 수집 중', `네이버 뉴스에서 [${firstCategory}] 최신 속보를 검색하는 중입니다...`);
+  }
 
   try {
-    const firstNewsItems = await fetchNaverRSSNews(firstCategory, firstBatchCount);
+    let firstNewsItems;
+    if (state.apiKey) {
+      try {
+        firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt, 1, { fastFirst: true });
+      } catch (geminiErr) {
+        console.warn('첫 소식 Gemini 수집 실패, RSS로 폴백:', geminiErr);
+        firstNewsItems = await fetchNaverRSSNews(firstCategory, 1);
+      }
+    } else {
+      firstNewsItems = await fetchNaverRSSNews(firstCategory, 1);
+    }
 
     // 비동기 실행 도중 세션이 만료되었는지 확인
     if (thisSession !== currentFetchSession) return;
@@ -1071,8 +1129,8 @@ async function fetchNews() {
     return;
   }
 
-  // 2단계: 요청한 총 개수까지 나머지 뉴스를 병렬로 보충 수집한다.
-  fillNewsUntilTarget('', selectedCategories, state.prompt, requestedTotal, thisSession);
+  // 2단계: 남은 분배 계획에 맞춰 백그라운드 병렬 수집 진행
+  fetchRemainingNewsByPlan(state.apiKey, categoryCounts, state.prompt, requestedTotal, thisSession);
 }
 
 // Gemini API를 사용하여 단일 카테고리에 대한 뉴스 요약 생성 (속도 극대화, 개수 동적)
@@ -1086,22 +1144,33 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
 
   const promptText = options.fastFirst ? `
     역할: 빠른 오늘의 뉴스 앵커
-    현재 KST 시각은 [ ${currentLocalTimeStr} ], 오늘은 [ ${kstInfo.label} ] 입니다.
-    google_search로 [ ${category} ] 분야의 최근 24시간 이내 실제 한국 뉴스 1건만 즉시 찾아 JSON 배열로 반환하세요.
-    과거 학습 데이터, 가짜 기사, 언론사 메인 URL, 네이버/다음 홈 URL은 금지입니다.
-    source_url은 검색 결과의 실제 상세 기사 URL이어야 합니다.
-    body는 자연스러운 한국어 4문장으로 쓰세요. 핵심 사실, 배경, 영향, 유의점을 포함하고 title은 15자 이내로 쓰세요.
-    출력은 설명 없이 아래 스키마의 JSON 배열만 허용합니다.
-    [{"id":1,"category":"${category}","title":"15자 이내 제목","body":"뉴스 본문 4문장. 핵심 사실, 배경, 영향, 유의점을 포함","time":"${currentMonth}.${currentDate} 오전 08:00","source_name":"언론사명","source_url":"실제 상세 기사 URL"}]
+    
+    시간 및 구글 검색 중요 지침 (가장 중요):
+    현재 한국 표준시(KST) 시각은 [ ${currentLocalTimeStr} ], 오늘은 [ ${kstInfo.label} ] 입니다.
+    1. **반드시 google_search 도구를 사용하여 오늘 날짜인 [ ${kstInfo.label} ]에 실제로 발행 및 보도된 실시간 기사 1건만 즉시 찾아내십시오.**
+    2. 검색할 때 \`[ ${category} 2026년 7월 14일 최신 뉴스 ]\` 또는 \`[ 2026년 7월 14일 오늘 ${category} ]\` 와 같이 정확한 연도와 오늘 날짜를 구글 검색 쿼리에 명시하여 24시간 이내의 진짜 최신 실시간 뉴스만을 검색하도록 강제하십시오.
+    3. 과거 학습 데이터나 24시간이 지난 옛날 기사는 절대 요약하지 마십시오.
+    4. source_url은 검색 결과의 실제 상세 기사 URL이어야 합니다.
+    
+    사용자의 추가 요구사항: "${prompt || '바쁜 아침에 핵심만 쉽게 요약해줘.'}"
+    
+    요구사항 반영 및 글자 수 증대 지침:
+    1. 사용자의 추가 요구사항 지침에 맞추어 뉴스를 요약하되, 본문("body")은 아나운서가 부드럽고 친근하게 읽을 수 있는 자연스러운 한국어 줄글 8~10문장으로 대폭 상세하게(약 450~550자 분량) 작성하십시오.
+    2. 핵심 팩트 외에 구체적인 수치, 발생 배경, 사회·경제적 파급 효과, 그리고 사용자가 알아야 할 후속 전망 및 대처법까지 대폭 상세화하여 2배 늘어난 풍부한 정보를 담아야 합니다.
+    3. 제목("title")은 15자 이내의 짧은 한줄 헤드라인으로 쓰세요.
+    
+    출력은 설명 없이 아래 스키마의 JSON 배열만 허용합니다:
+    [{"id":1,"category":"${category}","title":"15자 이내 제목","body":"사용자의 요구사항에 맞춘 8~10문장의 500자 분량 상세 본문","time":"${currentMonth}.${currentDate} 오전 08:00","source_name":"언론사명","source_url":"실제 상세 기사 URL"}]
   ` : `
     역할: 전문 오늘의 뉴스 앵커 및 아나운서
     
     시간 및 검색 규정 (가장 엄격히 준수):
     현재 대한민국의 로컬 시각은 한국 표준시(KST) 기준 [ ${currentLocalTimeStr} ] 이며, 오늘은 [ ${kstInfo.label} ] 입니다.
     1. **반드시 google_search 도구를 적극 사용해 오늘 현재 시각 기준 "최근 24시간 이내"에 대한민국 메이저 언론사 등에 실제 보도된 실시간 최신 뉴스 및 사건들만 검색하여 요약 기재해야 합니다.**
-    2. 과거에 이미 학습한 옛날 데이터나 가공의 기사를 들려주어서는 절대로 안 됩니다. 무조건 오늘 실제 발생한 시사/뉴스 검색 결과만 사용하십시오.
-    3. 수집된 최신 뉴스의 정확한 보도 시각을 바탕으로 JSON의 "time" 필드를 채우십시오.
-    4. **출처 검증 규정 (극도로 중요 - 절대 변조 금지)**:
+    2. 구글 실시간 검색 시 \`[ ${category} 2026년 7월 14일 최신 뉴스 ]\` 또는 \`[ 2026년 7월 14일 오늘 ${category} 주요 뉴스 ]\` 와 같이 정확한 연도와 오늘 날짜를 구글 검색 쿼리에 반드시 명시하여 24시간이 지나지 않은 최신 속보만 수집하도록 강제하십시오.
+    3. 과거에 이미 학습한 옛날 데이터나 가공의 기사, 혹은 24시간이 지난 과거 날짜의 뉴스는 절대로 들려주어서는 안 됩니다. 무조건 오늘 실제 발생한 시사/뉴스 검색 결과만 사용하십시오.
+    4. 수집된 최신 뉴스의 정확한 보도 시각을 바탕으로 JSON의 "time" 필드를 채우십시오.
+    5. **출처 검증 규정 (극도로 중요 - 절대 변조 금지)**:
        - 검색한 원본 뉴스 기사의 정확한 출처 언론사명(예: 연합뉴스, YTN 등)을 "source_name"에 정확하게 적으십시오.
        - "source_url"에는 반드시 사용자가 클릭했을 때 해당 뉴스의 내용 전체를 직접 눈으로 대조하여 검증해볼 수 있는 **그 뉴스 기사의 실제 원본 URL 전체 주소**를 기입하십시오.
        - **[경고] 기사 URL 주소(예: AKR20260713028400017 등 기사 번호나 파라미터)의 글자나 숫자를 단 하나라도 네가 임의로 지어내거나 추측해서 수정(변조)해서는 절대 안 됩니다. 네가 임의로 기사 번호를 적으면 404 페이지 오류("원하시는 페이지를 찾을 수 없습니다")가 발생합니다. 반드시 google_search 검색 결과에 실제로 표시된 그 기사의 원본 링크 URL을 철자 하나 틀리지 않고 100% 똑같이 그대로 복사-붙여넣기(Copy-and-Paste)하여 출력하십시오.**
@@ -1111,9 +1180,9 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
     사용자가 선택한 관심 분야는 [ ${category} ] 입니다.
     사용자의 추가 요구사항: "${prompt || '바쁜 아침에 핵심만 쉽게 요약해줘.'}"
 
-    텍스트 형식 규정 (극도로 중요):
+    텍스트 형식 및 분량 확대 규정 (극도로 중요):
     1. 뉴스 본문("body")에는 절대로 "첫째", "둘째", "셋째", "넷째", "증시 뉴스입니다", "경제 소식입니다" 와 같은 인위적인 순서 표기 단어나 카테고리 머리말을 기재하지 마십시오.
-    2. 본문("body")은 뉴스 카드로 화면에 직접 렌더링되고 그대로 낭독되므로, 아나운서가 부드럽게 읽을 수 있는 한국어 줄글 4~6문장으로 작성하십시오. 기존보다 약 2배 상세하게, 핵심 사실과 발생 배경, 관련 수치나 관계자 반응, 시장·사회적 영향, 사용자가 알아야 할 후속 전망을 포함하십시오.
+    2. 본문("body")은 뉴스 카드로 화면에 직접 렌더링되고 그대로 낭독되므로, 아나운서가 부드럽게 읽을 수 있는 한국어 줄글 8~10문장(약 450~550자 분량)으로 작성하십시오. 기존의 짧은 요약 형태보다 2배 상세하게 적어야 하며, 핵심 사실과 발생 배경, 관련 수치나 관계자 반응, 시장·사회적 영향, 사용자가 알아야 할 후속 전망을 매우 구체적으로 풍성하게 포함하십시오.
     3. 중복되는 번호나 분야 소개말은 완전히 배제하고 오직 팩트 위주의 본문 내용만 기입하십시오. 단순 요약 한두 문장으로 끝내지 말고, 문장마다 새로운 정보를 담아 상세도를 높이십시오.
     4. **제목("title")은 반드시 15자 이내의 짧은 한줄 요약 헤드라인으로 작성하십시오.** 예시: "코스피 7천선 돌파", "유가 급락 비상경영". 길고 장황한 제목은 절대 금지입니다.
 
@@ -1125,7 +1194,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
         "id": 1,
         "category": "${category}",
         "title": "15자 이내 한줄 요약 제목",
-        "body": "화면에 직접 표기될 격식 있고 자연스러운 4~6문장 줄글 뉴스 내용 (핵심 사실, 배경, 영향, 전망 포함. 첫째/둘째 등 기호 일절 없음)",
+        "body": "화면에 직접 표기될 격식 있고 자연스러운 8~10문장의 줄글 뉴스 내용 (약 500자 분량. 핵심 사실, 배경, 구체적 수치, 파급 영향, 전망 포함. 첫째/둘째 등 기호 일절 없음. 설정된 추가 요구사항 프롬프트를 반드시 지키며 작성)",
         "time": "${currentMonth}.${currentDate} 오전 08:00",
         "source_name": "연합뉴스",
         "source_url": "검색 결과에서 복사한 실제 상세 기사 URL"
@@ -1174,29 +1243,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
         throw new Error(`API 키 오류: API 키가 유효하지 않거나 권한이 없습니다. 구글 AI Studio에서 키를 재발급 받으세요. (상세: ${errMsg || response.statusText})`);
       }
 
-      // 400(Bad Request) 혹은 429(Too Many Requests)이고 검색 도구가 켜져 있다면, 검색 도구 없이 1회 즉시 재시도
-      if ((response.status === 400 || response.status === 429) && requestBody.tools) {
-        console.warn(`[${version}/${model}] 오류(${response.status}) 감지, 검색 도구(tools) 제거 후 대기 없이 재시도...`);
-        try {
-          delete requestBody.tools;
-          response = await rateLimitedFetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          });
-        } catch (netErr) {
-          throw new Error(`네트워크 연결 실패: 인터넷 상태를 확인해 주세요. 상세: ${netErr.message || netErr}`);
-        }
 
-        if (response.ok) {
-          console.log(`✅ [${version}/${model}] 검색 도구 제거 재시도 성공`);
-        } else {
-          try {
-            const retryErrJson = await response.json();
-            errMsg = retryErrJson.error?.message || JSON.stringify(retryErrJson);
-          } catch (_) {}
-        }
-      }
 
       // 검색 도구 없이도 여전히 에러라면, 다음 폴백 모델로 즉각 이동
       if (!response.ok) {
@@ -1313,23 +1360,26 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
           }
         }
 
-        const fallbackTime = `${currentMonth}.${currentDate} ${Number(kstInfo.hour) >= 12 ? '오후' : '오전'} ${Number(kstInfo.hour) % 12 || 12}:${kstInfo.minute}`;
-        const normalizedTime = isRecentNewsTime(item.time, now) ? item.time : fallbackTime;
+        const isRecent = isRecentNewsTime(item.time, now);
+        if (!isRecent) {
+          item.isExpired = true;
+        }
 
         return {
           id: item.id || 1,
           category: item.category || category,
           title: item.title || '최신 속보 브리핑',
           body: item.body || '',
-          time: normalizedTime,
+          time: item.time,
           source_name: sourceName.trim(),
-          source_url: sourceUrl.trim()
+          source_url: sourceUrl.trim(),
+          isExpired: item.isExpired || false
         };
       });
 
-      const verifiedItems = normalizedItems.filter(item => isLikelyDetailedArticleUrl(item.source_url) && item.body && item.body.trim());
+      const verifiedItems = normalizedItems.filter(item => !item.isExpired && isLikelyDetailedArticleUrl(item.source_url) && item.body && item.body.trim());
       if (verifiedItems.length === 0) {
-        lastError = `모델 ${model}: 최근 24시간 이내 상세 기사 URL을 가진 뉴스가 없음`;
+        lastError = `모델 ${model}: 최근 24시간 이내의 검증된 실시간 뉴스가 없거나 필터링됨`;
         continue;
       }
 
@@ -1343,6 +1393,29 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
 
   // 모든 시도 실패
   throw new Error(`[${category}] 모든 Gemini 모델 시도 실패. 마지막 오류: ${lastError}`);
+}
+
+// 임시 샘플(Mock) 뉴스 노출 여부에 따라 상단 경고 배너를 업데이트하는 함수
+function updateMockWarningBanner() {
+  const hasMock = state.newsList.some(item => item.isMock);
+  const banner = document.getElementById('mock-warning-banner');
+  if (hasMock) {
+    if (!banner) {
+      const newBanner = document.createElement('div');
+      newBanner.id = 'mock-warning-banner';
+      newBanner.className = 'mock-warning-banner';
+      newBanner.innerHTML = `
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>실시간 뉴스 수집이 원활하지 않아 <strong>임시 샘플(Mock) 뉴스</strong>가 표시되고 있습니다. API Key 및 프록시 상태를 확인해 주세요.</span>
+      `;
+      const main = document.querySelector('.main-content');
+      if (main) {
+        main.insertBefore(newBanner, main.firstChild);
+      }
+    }
+  } else {
+    if (banner) banner.remove();
+  }
 }
 
 // 뉴스 본문에서 "첫째, 둘째" 및 "[카테고리] 뉴스입니다" 같은 불필요한 단어를 정제하는 헬퍼 함수
@@ -1368,6 +1441,8 @@ function cleanNewsBodyText(body, category) {
 
 // 로딩 화면 그리기
 function showNewsLoading() {
+  const banner = document.getElementById('mock-warning-banner');
+  if (banner) banner.remove();
   const grid = document.getElementById('news-grid');
   grid.innerHTML = `
     <!-- 뉴스 로딩 상태 안내 카드 -->
@@ -1457,6 +1532,7 @@ function appendNewsCard(news, index) {
       playNewsAtIndex(idx);
     });
   }
+  updateMockWarningBanner();
 }
 
 // 화면에 뉴스 카드 배치 (초기화 및 빈 상태용)
@@ -1478,6 +1554,7 @@ function renderNewsList(list) {
   list.forEach((news, index) => {
     appendNewsCard(news, index);
   });
+  updateMockWarningBanner();
 }
 
 // ====================================================
@@ -1698,7 +1775,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260713_final')
+      navigator.serviceWorker.register('./sw.js?v=20260714_v12')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
           
