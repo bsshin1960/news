@@ -5,7 +5,7 @@ let currentFetchSession = 0;
 let lastRenderedCategory = '';
 
 let state = {
-  categories: ['정치', '경제', '증시', '과학', '날씨', '사회', '스포츠', '문화', 'AI뉴스'],
+  categories: ['정치', '경제', '증시', '과학', '날씨', '사회', '스포츠', '문화', 'AI뉴스', '건강', '연예', '산업'],
   prompt: '',
   apiKey: '',
   voiceName: '',
@@ -99,6 +99,33 @@ const MOCK_NEWS_TEMPLATES = [
     time: '오전 08:50',
     source_name: '지디넷코리아',
     source_url: 'https://zdnet.co.kr/view/?no=20260713777777'
+  },
+  {
+    id: 10,
+    category: '건강',
+    title: '질병관리청, 환절기 면역력 저하에 따른 호흡기 감염병 예방 주의보 발령',
+    body: '질병관리청은 급격한 기온 변화로 면역력이 떨어지기 쉬운 환절기를 맞아 독감 및 백일해 등 호흡기 감염병 환자가 급증하고 있다고 경고했습니다. 외출 후 손 씻기와 실내 환기 등 예방 수칙을 준수해 달라고 당부했습니다.',
+    time: '오전 09:00',
+    source_name: '헬스조선',
+    source_url: 'https://health.chosun.com/site/data/html_dir/2026/07/13/2026071300001.html'
+  },
+  {
+    id: 11,
+    category: '연예',
+    title: '대형 기획사 신인 아이돌 그룹, 데뷔와 동시에 글로벌 음원 차트 1위 석권',
+    body: '최근 데뷔한 5인조 하이브리드 콘셉트 신인 보이그룹이 데뷔 타이틀곡 발표와 동시에 국내 주요 음원 차트는 물론 빌보드 및 글로벌 스포티파이 실시간 스트리밍 순위 1위를 휩쓸며 차세대 K-POP 주역으로 떠올랐습니다.',
+    time: '오전 09:10',
+    source_name: '디스패치',
+    source_url: 'https://www.dispatch.co.kr/202607139999'
+  },
+  {
+    id: 12,
+    category: '산업',
+    title: '국내 완성차 업계, 차세대 고체 전지 탑재 전기차 생산 라인 착공',
+    body: '국내 주요 완성차 및 배터리 협력사 연합이 주행 거리를 대폭 늘리고 화재 위험성을 획기적으로 낮춘 꿈의 배터리, 전고체 배터리 전기차 전용 스마트 제조 공장 라인을 국내 최초로 공식 착공하고 대량 양산 돌입을 선언했습니다.',
+    time: '오전 09:20',
+    source_name: '마켓인사이트',
+    source_url: 'https://marketinsight.hankyung.com/article/202607130012c'
   }
 ];
 
