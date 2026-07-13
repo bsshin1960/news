@@ -599,115 +599,159 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     ]
   `;
 
-  // 2026년 7월 기준 최신 Gemini 모델 목록 (무료 티어 우선 배치)
-  const MODEL_CANDIDATES = [
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-pro',
-    'gemini-pro'
-  ];
-
-  // v1beta를 우선 시도 (실시간 검색 그라운딩 지원), 실패 시 v1 안정 버전으로 폴백
-  const API_VERSIONS = ['v1beta', 'v1'];
-
-  let lastError = '지원되는 Gemini 모델을 찾지 못했습니다.';
-
-  for (const version of API_VERSIONS) {
-    for (const model of MODEL_CANDIDATES) {
-      const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
-      
-      const requestBody = {
-        contents: [{ parts: [{ text: promptText }] }]
-      };
-
-      // v1beta 버전일 때만 실시간 구글 검색 그라운딩 활성화 (v1 안정 버전은 tools 필드를 지원하지 않아 에러 유발)
-      if (version === 'v1beta') {
-        requestBody.tools = [{ google_search: {} }];
-      }
-
-      let response;
-      try {
-        response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
-      } catch (netErr) {
-        throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
-      }
-
-      if (!response.ok) {
-        let errMsg = '';
-        try {
-          const errJson = await response.json();
-          if (errJson.error && errJson.error.message) {
-            errMsg = errJson.error.message;
-          }
-        } catch (_) {}
-
-        // 404(모델 없음), 429(쿼터 초과), 400(지원하지 않는 파라미터) → 다음 모델로 폴백
-        if (
-          response.status === 400 ||
-          response.status === 404 ||
-          response.status === 429 ||
-          (errMsg && errMsg.includes('not found')) ||
-          (errMsg && errMsg.includes('not supported')) ||
-          (errMsg && errMsg.includes('quota')) ||
-          (errMsg && errMsg.includes('RESOURCE_EXHAUSTED')) ||
-          (errMsg && errMsg.includes('Unknown name')) ||
-          (errMsg && errMsg.includes('Invalid'))
-        ) {
-          lastError = `[${version}/${model}] ${errMsg}`;
-          console.warn(`모델 ${version}/${model} 사용 불가(${response.status}), 다음 모델로 폴백...`);
-          continue;
+  // ===== 1단계: 구글 API에 직접 물어서 사용 가능한 모델 자동 탐색 =====
+  let discoveredModels = [];
+  
+  for (const version of ['v1beta', 'v1']) {
+    try {
+      const listUrl = `https://generativelanguage.googleapis.com/${version}/models?key=${apiKey}`;
+      const listResp = await fetch(listUrl);
+      if (listResp.ok) {
+        const listData = await listResp.json();
+        if (listData.models) {
+          // generateContent를 지원하는 모델만 필터링
+          const genModels = listData.models
+            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+            .map(m => ({ name: m.name.replace('models/', ''), version }));
+          discoveredModels.push(...genModels);
         }
-
-        // 키 인증 오류(401, 403)는 즉시 사용자에게 알림
-        if (response.status === 401 || response.status === 403) {
-          throw new Error(`API 키 오류: API 키가 유효하지 않거나 권한이 없습니다. 구글 AI Studio에서 키를 재발급 받으세요.`);
-        }
-
-        // 기타 오류도 다음 모델로 폴백 시도
-        lastError = `[${version}/${model}] ${errMsg || response.statusText}`;
-        console.warn(`모델 ${version}/${model} 기타 오류(${response.status}), 다음 모델로 폴백...`);
-        continue;
       }
-
-      // 성공한 경우 파싱 진행
-      const data = await response.json();
-      
-      if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
-        lastError = `모델 ${model}: 유효한 응답 없음`;
-        continue;
-      }
-
-      const rawText = data.candidates[0].content.parts[0].text.trim();
-      
-      let jsonString = rawText;
-      const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
-      const match = jsonString.match(jsonBlockRegex);
-      if (match) jsonString = match[1].trim();
-      
-      const arrayRegex = /\[\s*\{[\s\S]*\}\s*\]/;
-      const arrayMatch = jsonString.match(arrayRegex);
-      if (arrayMatch) jsonString = arrayMatch[0].trim();
-
-      try {
-        const result = JSON.parse(jsonString);
-        console.log(`✅ 성공: ${version}/${model} 모델로 뉴스 수신 완료`);
-        return result;
-      } catch (parseErr) {
-        console.error(`파싱 실패 (${model}):`, rawText);
-        lastError = `JSON 파싱 실패 (${model})`;
-        continue;
-      }
+    } catch (e) {
+      console.warn(`${version} 모델 목록 조회 실패:`, e);
     }
   }
 
-  // 모든 모델 폴백 실패
+  // flash 모델을 우선하도록 정렬 (속도 빠르고 무료 쿼터 넉넉)
+  discoveredModels.sort((a, b) => {
+    const aFlash = a.name.includes('flash') ? 0 : 1;
+    const bFlash = b.name.includes('flash') ? 0 : 1;
+    if (aFlash !== bFlash) return aFlash - bFlash;
+    // 최신 버전 숫자가 큰 것을 우선
+    return b.name.localeCompare(a.name);
+  });
+
+  // 자동 탐색 실패 시 기본 후보 목록 사용
+  if (discoveredModels.length === 0) {
+    const fallbackNames = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    for (const name of fallbackNames) {
+      discoveredModels.push({ name, version: 'v1beta' });
+      discoveredModels.push({ name, version: 'v1' });
+    }
+  }
+
+  console.log(`🔍 탐색된 모델 ${discoveredModels.length}개:`, discoveredModels.map(m => `${m.version}/${m.name}`).join(', '));
+
+  // ===== 2단계: 탐색된 모델로 순차적 뉴스 생성 시도 =====
+  let lastError = '사용 가능한 Gemini 모델을 찾지 못했습니다.';
+
+  for (const { name: model, version } of discoveredModels) {
+    const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
+    
+    const requestBody = {
+      contents: [{ parts: [{ text: promptText }] }]
+    };
+
+    // v1beta에서만 실시간 검색 그라운딩 시도
+    if (version === 'v1beta') {
+      requestBody.tools = [{ google_search: {} }];
+    }
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+    } catch (netErr) {
+      throw new Error('네트워크 연결 실패: 인터넷 상태를 확인해 주세요.');
+    }
+
+    if (!response.ok) {
+      let errMsg = '';
+      try {
+        const errJson = await response.json();
+        if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
+      } catch (_) {}
+
+      // 인증 오류만 즉시 중단
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('API 키 오류: API 키가 유효하지 않거나 권한이 없습니다. 구글 AI Studio에서 키를 재발급 받으세요.');
+      }
+
+      // tools 파라미터 오류(400)일 때 tools 없이 한 번 더 재시도
+      if (response.status === 400 && version === 'v1beta') {
+        console.warn(`${version}/${model} tools 파라미터 오류, tools 제거 후 재시도...`);
+        try {
+          delete requestBody.tools;
+          const retryResp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          });
+          if (retryResp.ok) {
+            response = retryResp; // 성공하면 이 응답을 사용
+          } else {
+            lastError = `[${version}/${model}] ${errMsg}`;
+            console.warn(`모델 ${version}/${model} 재시도 실패(${retryResp.status}), 다음 모델로...`);
+            continue;
+          }
+        } catch (_) {
+          continue;
+        }
+      } else {
+        lastError = `[${version}/${model}] ${errMsg || response.statusText}`;
+        console.warn(`모델 ${version}/${model} 사용 불가(${response.status}), 다음 모델로 폴백...`);
+        continue;
+      }
+    }
+
+    // 성공한 경우 파싱 진행
+    const data = await response.json();
+    
+    if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
+      // text 파트가 없을 수도 있음 (검색 그라운딩 결과만 반환된 경우)
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+        const textPart = data.candidates[0].content.parts.find(p => p.text);
+        if (!textPart) {
+          lastError = `모델 ${model}: 텍스트 응답 없음`;
+          continue;
+        }
+      } else {
+        lastError = `모델 ${model}: 유효한 응답 없음`;
+        continue;
+      }
+    }
+
+    const rawText = data.candidates[0].content.parts.find(p => p.text)?.text?.trim() 
+                  || data.candidates[0].content.parts[0].text?.trim();
+    
+    if (!rawText) {
+      lastError = `모델 ${model}: 빈 응답`;
+      continue;
+    }
+
+    let jsonString = rawText;
+    const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
+    const match = jsonString.match(jsonBlockRegex);
+    if (match) jsonString = match[1].trim();
+    
+    const arrayRegex = /\[\s*\{[\s\S]*\}\s*\]/;
+    const arrayMatch = jsonString.match(arrayRegex);
+    if (arrayMatch) jsonString = arrayMatch[0].trim();
+
+    try {
+      const result = JSON.parse(jsonString);
+      console.log(`✅ 성공: ${version}/${model} 모델로 뉴스 수신 완료`);
+      return result;
+    } catch (parseErr) {
+      console.error(`파싱 실패 (${model}):`, rawText);
+      lastError = `JSON 파싱 실패 (${model})`;
+      continue;
+    }
+  }
+
+  // 모든 시도 실패
   throw new Error(`모든 Gemini 모델 시도 실패. 마지막 오류: ${lastError}`);
 }
 
