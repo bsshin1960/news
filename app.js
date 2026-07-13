@@ -1,6 +1,9 @@
 // ====================================================
 // 1. 상태 및 상수 정의
 // ====================================================
+let currentFetchSession = 0;
+let lastRenderedCategory = '';
+
 let state = {
   categories: ['정치', '경제', '증시', '과학', '날씨', '사회', '스포츠', '문화', 'AI뉴스'],
   prompt: '',
@@ -535,97 +538,153 @@ function saveSettings() {
 // ====================================================
 // 4. 뉴스 데이터 처리 및 가져오기 로직
 // ====================================================
+// 카테고리 매칭 모의 뉴스를 포맷에 맞춰 반환하는 헬퍼 함수
+function getMockNewsForCategory(category, minusMinutes) {
+  let templates = MOCK_NEWS_TEMPLATES.filter(item => item.category === category);
+  if (templates.length === 0) {
+    templates = [MOCK_NEWS_TEMPLATES[0]]; // 폴백
+  }
+  
+  const promptStyle = state.prompt.toLowerCase();
+  const now = new Date();
+  const target = new Date(now.getTime() - minusMinutes * 60 * 1000);
+  const month = String(target.getMonth() + 1).padStart(2, '0');
+  const date = String(target.getDate()).padStart(2, '0');
+  const hours = target.getHours();
+  const minutes = target.getMinutes();
+  const ampm = hours >= 12 ? '오후' : '오전';
+  const displayHours = hours % 12 || 12;
+  const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+  const formattedTime = `${month}.${date} ${ampm} ${displayHours}:${displayMinutes}`;
+  
+  return templates.map(item => {
+    let modifiedBody = item.body;
+    let modifiedTitle = item.title;
+    
+    if (promptStyle.includes('간단') || promptStyle.includes('요약')) {
+      modifiedBody = modifiedBody.split(' ').slice(0, 15).join(' ') + '... (간단 요약 완료)';
+    } else if (promptStyle.includes('격려') || promptStyle.includes('희망')) {
+      modifiedBody = modifiedBody + ' 활기찬 아침, 오늘도 힘내세요!';
+    } else if (promptStyle.includes('쉬운') || promptStyle.includes('초등')) {
+      modifiedBody = '🤖 [쉽게 읽기] ' + modifiedBody.replace('경감', '줄임').replace('합성', '만들기').replace('경신', '뛰어넘음');
+    }
+    
+    return {
+      ...item,
+      title: modifiedTitle,
+      body: modifiedBody,
+      time: formattedTime
+    };
+  });
+}
+
 async function fetchNews() {
+  currentFetchSession++;
+  const thisSession = currentFetchSession;
+  
   showNewsLoading();
   stopSpeech(); // 뉴스 리프레시 시 기존 재생 정지
   
+  state.newsList = [];
+  state.currentNewsIndex = -1;
+  lastRenderedCategory = ''; // 카테고리 헤더 렌더링 추적 초기화
+  
   const hasApiKey = state.apiKey.trim() !== '';
+  const selectedCategories = [...state.categories];
 
-  // 현재 시각 기준 상대적 동적 시간을 반환하는 헬퍼 함수 (12시간 이내, 한국 시간 포맷)
-  const getDynamicTime = (minusMinutes) => {
-    const now = new Date();
-    const target = new Date(now.getTime() - minusMinutes * 60 * 1000);
-    
-    // 한국 시간대 기준 월/일 계산
-    const month = String(target.getMonth() + 1).padStart(2, '0');
-    const date = String(target.getDate()).padStart(2, '0');
-    
-    const hours = target.getHours();
-    const minutes = target.getMinutes();
-    const ampm = hours >= 12 ? '오후' : '오전';
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
-    
-    return `${month}.${date} ${ampm} ${displayHours}:${displayMinutes}`;
-  };
+  if (selectedCategories.length === 0) {
+    renderErrorMessage('선택된 관심사 카테고리가 없습니다. 설정에서 카테고리를 선택해 주세요.');
+    return;
+  }
 
-  // 모의 뉴스별 현재 시각 기준 상대적 시간차 배열 (분 단위, 모두 12시간 = 720분 이내)
+  // 모의 뉴스 시간차 배열
   const timeOffsets = [15, 45, 90, 150, 240, 360, 480, 600];
 
+  // 1단계: 첫 번째 카테고리 즉각 쾌속 수집 및 낭독
+  const firstCategory = selectedCategories[0];
+  updatePlayerStatus('뉴스 준비 중', `첫 소식(${firstCategory})을 준비하는 중입니다...`);
+
   try {
+    let firstNewsItems = [];
     if (hasApiKey) {
-      // Gemini API가 제공된 경우 실시간 요약 뉴스 로드
-      state.newsList = await fetchGeminiNews(state.apiKey, state.categories, state.prompt);
+      firstNewsItems = await fetchGeminiNewsForCategory(state.apiKey, firstCategory, state.prompt);
     } else {
-      // API Key가 없는 경우 모의 데이터를 기반으로 필터링 및 조작
-      // 로딩 딜레이 체감용 1.2초 대기
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      let filtered = MOCK_NEWS_TEMPLATES.filter(item => state.categories.includes(item.category));
-      
-      // 만약 선택된 카테고리가 아예 없다면 전체 노출
-      if (filtered.length === 0) {
-        filtered = [...MOCK_NEWS_TEMPLATES];
-      }
-
-      // 사용자가 입력한 요구사항(프롬프트)에 맞춰 텍스트를 커스터마이징 (재미 요소 추가)
-      const promptStyle = state.prompt.toLowerCase();
-      state.newsList = filtered.map((item, idx) => {
-        let modifiedBody = item.body;
-        let modifiedTitle = item.title;
-        
-        if (promptStyle.includes('간단') || promptStyle.includes('요약')) {
-          modifiedBody = modifiedBody.split(' ').slice(0, 15).join(' ') + '... (간단 요약 완료)';
-        } else if (promptStyle.includes('격려') || promptStyle.includes('희망')) {
-          modifiedBody = modifiedBody + ' 활기찬 아침, 오늘도 힘내세요!';
-        } else if (promptStyle.includes('쉬운') || promptStyle.includes('초등')) {
-          modifiedBody = '🤖 [쉽게 읽기] ' + modifiedBody.replace('경감', '줄임').replace('합성', '만들기').replace('경신', '뛰어넘음');
-        }
-
-        // 현재 시각 기준 12시간 이내의 실시간 동적 시간 부여
-        const dynamicTime = getDynamicTime(timeOffsets[idx % timeOffsets.length]);
-
-        return {
-          ...item,
-          title: modifiedTitle,
-          body: modifiedBody,
-          time: dynamicTime
-        };
-      });
+      // 로딩 체감 가상 대기 (0.3초)
+      await new Promise(resolve => setTimeout(resolve, 300));
+      firstNewsItems = getMockNewsForCategory(firstCategory, timeOffsets[0]);
     }
 
-    // 증시, 경제 등 동일 항목은 연속해서 묶이도록 카테고리별 정렬 수행
-    state.newsList.sort((a, b) => a.category.localeCompare(b.category, 'ko'));
+    // 비동기 실행 도중 세션이 만료되었는지 확인
+    if (thisSession !== currentFetchSession) return;
 
-    renderNewsList(state.newsList);
-    state.currentNewsIndex = -1;
-    updatePlayerStatus('낭독 대기 중', '뉴스 수집이 완료되었습니다.');
+    // 로딩 완료 후 그리드 리프레시
+    const grid = document.getElementById('news-grid');
+    grid.innerHTML = '';
 
-    // 뉴스 로드 완료 직후 자동 재생 트리거 시도
-    setTimeout(() => {
-      if (state.newsList.length > 0 && !state.isPlaying) {
-        togglePlayPause();
-      }
-    }, 600);
-    
+    if (firstNewsItems && firstNewsItems.length > 0) {
+      firstNewsItems.forEach(item => {
+        const newIdx = state.newsList.length;
+        state.newsList.push(item);
+        appendNewsCard(item, newIdx);
+      });
+
+      updatePlayerStatus('낭독 대기 중', '첫 소식이 준비되어 즉시 자동 재생합니다. 다른 뉴스를 백그라운드에서 수집 중입니다...');
+
+      // 쾌속 재생 트리거
+      setTimeout(() => {
+        if (thisSession === currentFetchSession && state.newsList.length > 0 && !state.isPlaying) {
+          togglePlayPause();
+        }
+      }, 500);
+    } else {
+      throw new Error(`첫 소식(${firstCategory})을 가져오지 못했습니다.`);
+    }
+
   } catch (error) {
-    console.error('뉴스 가져오기 실패:', error);
-    renderErrorMessage(error.message);
+    console.error('첫 소식 가져오기 실패:', error);
+    if (thisSession === currentFetchSession) {
+      renderErrorMessage(`첫 뉴스를 준비하지 못했습니다. 상세 원인: ${error.message}`);
+    }
+    return;
   }
+
+  // 2단계: 나머지 카테고리 백그라운드 순차/병렬 수집 진행
+  const remainingCategories = selectedCategories.slice(1);
+  if (remainingCategories.length === 0) return;
+
+  remainingCategories.forEach(async (category, sliceIdx) => {
+    try {
+      let items = [];
+      if (hasApiKey) {
+        items = await fetchGeminiNewsForCategory(state.apiKey, category, state.prompt);
+      } else {
+        // 모의 모드: 자연스러운 슬라이드식 시간차 부착 연출 (1초 간격)
+        await new Promise(resolve => setTimeout(resolve, 800 * (sliceIdx + 1)));
+        items = getMockNewsForCategory(category, timeOffsets[(sliceIdx + 1) % timeOffsets.length]);
+      }
+
+      if (thisSession !== currentFetchSession) return;
+
+      if (items && items.length > 0) {
+        items.forEach(item => {
+          const newIdx = state.newsList.length;
+          state.newsList.push(item);
+          appendNewsCard(item, newIdx);
+        });
+
+        // 재생 진행률 바 분모 갱신을 위한 강제 호출
+        if (state.isPlaying && state.currentNewsIndex !== -1) {
+          updateProgressBar(state.currentNewsIndex);
+        }
+      }
+    } catch (err) {
+      console.warn(`${category} 카테고리 백그라운드 요약 실패:`, err);
+    }
+  });
 }
 
-// Gemini API를 사용하여 뉴스 요약 생성
-async function fetchGeminiNews(apiKey, categories, prompt) {
+// Gemini API를 사용하여 단일 카테고리에 대한 뉴스 1개 요약 생성 (속도 극대화)
+async function fetchGeminiNewsForCategory(apiKey, category, prompt) {
   // 대한민국 표준시(KST) 기준 시간 표기 생성
   const now = new Date();
   const currentLocalTimeStr = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -641,21 +700,21 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     12시간이 경과한 옛날 과거 뉴스는 절대로 포함해서는 안 되며, 들려주어서도 안 됩니다. 무조건 KST 기준 12시간 이내의 최신성 정보만 취급하세요.
 
     요청사항: 
-    사용자가 선택한 관심 분야는 다음과 같습니다: [${categories.join(', ')}].
+    사용자가 선택한 관심 분야는 [ ${category} ] 입니다.
     사용자의 추가 요구사항: "${prompt || '바쁜 아침에 핵심만 쉽게 요약해줘.'}"
 
     텍스트 형식 규정 (극도로 중요):
     1. 뉴스 본문("body")에는 절대로 "첫째", "둘째", "셋째", "넷째", "증시 뉴스입니다", "경제 소식입니다" 와 같은 인위적인 순서 표기 단어나 카테고리 머리말을 기재하지 마십시오.
-    2. 본문("body")은 뉴스 카드로 화면에 직접 렌더링되므로, 군더더기 단어 없이 아나운서가 부드럽게 읽을 수 있는 가장 세련되고 완성도 높은 한국어 줄글 문장(2~3문장 내외)으로만 채우십시오.
+    2. 본문("body")은 뉴스 카드로 화면에 직접 렌더링되므로, 군더되기 단어 없이 아나운서가 부드럽게 읽을 수 있는 가장 세련되고 완성도 높은 한국어 줄글 문장(2~3문장 내외)으로만 채우십시오.
     3. 중복되는 번호나 분야 소개말은 완전히 배제하고 오직 팩트 위주의 본문 내용만 기입하십시오.
 
-    이 설정에 맞춰서 신뢰성 높은 최신 아침 뉴스 브리핑 5가지를 생성하고 JSON 배열 형식으로만 반환해줘.
+    이 설정에 맞춰서 신뢰성 높은 최신 아침 뉴스 브리핑 1가지를 생성하고 JSON 배열 형식으로만 반환해줘.
     반드시 아래 JSON 스키마만 정확하게 준수하여 응답해줘. 설명 문구 없이 JSON 배열 텍스트만 출력해줘:
 
     [
       {
         "id": 1,
-        "category": "정치",
+        "category": "${category}",
         "title": "뉴스 제목",
         "body": "화면에 직접 표기될 격식 있고 자연스러운 줄글 형태의 뉴스 내용 (첫째/둘째 등 기호 일절 없음)",
         "time": "${currentMonth}.${currentDate} 오전 08:00"
@@ -703,7 +762,7 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
     }
   }
 
-  console.log(`🔍 탐색된 모델 ${discoveredModels.length}개:`, discoveredModels.map(m => `${m.version}/${m.name}`).join(', '));
+  console.log(`🔍 [${category}] 탐색된 모델 ${discoveredModels.length}개:`, discoveredModels.map(m => `${m.version}/${m.name}`).join(', '));
 
   // ===== 2단계: 탐색된 모델로 순차적 뉴스 생성 시도 =====
   let lastError = '사용 가능한 Gemini 모델을 찾지 못했습니다.';
@@ -806,7 +865,7 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
 
     try {
       const result = JSON.parse(jsonString);
-      console.log(`✅ 성공: ${version}/${model} 모델로 뉴스 수신 완료`);
+      console.log(`✅ 성공: ${version}/${model} 모델로 [${category}] 뉴스 수신 완료`);
       return result;
     } catch (parseErr) {
       console.error(`파싱 실패 (${model}):`, rawText);
@@ -816,7 +875,7 @@ async function fetchGeminiNews(apiKey, categories, prompt) {
   }
 
   // 모든 시도 실패
-  throw new Error(`모든 Gemini 모델 시도 실패. 마지막 오류: ${lastError}`);
+  throw new Error(`[${category}] 모든 Gemini 모델 시도 실패. 마지막 오류: ${lastError}`);
 }
 
 // 뉴스 본문에서 "첫째, 둘째" 및 "[카테고리] 뉴스입니다" 같은 불필요한 단어를 정제하는 헬퍼 함수
@@ -879,7 +938,54 @@ function renderErrorMessage(message = '') {
   `;
 }
 
-// 화면에 뉴스 카드 배치
+// 개별 뉴스 카드를 하단에 동적으로 덧붙이는 함수 (스트리밍 점진 로딩의 핵심)
+function appendNewsCard(news, index) {
+  const grid = document.getElementById('news-grid');
+  if (!grid) return;
+
+  // 이전 카테고리와 다르면 그룹 헤더 추가 (박스 밖 왼쪽 위)
+  if (news.category !== lastRenderedCategory) {
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'category-group-header';
+    groupHeader.innerHTML = `
+      <span class="category-group-title ${news.category}">${news.category}</span>
+      <span class="category-group-line"></span>
+    `;
+    grid.appendChild(groupHeader);
+    lastRenderedCategory = news.category;
+  }
+
+  const card = document.createElement('article');
+  card.className = 'news-card';
+  card.id = `news-card-${index}`;
+  card.innerHTML = `
+    <div>
+      <div class="card-title-row" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px;">
+        <h2 class="card-title" style="margin: 0; flex: 1;">${news.title}</h2>
+        <div class="card-title-meta" style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+          <span class="card-time" style="font-size: 12px; color: var(--text-muted); font-weight: 500;">${news.time}</span>
+          <button class="btn-card-listen" data-index="${index}" style="margin: 0;">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+      </div>
+      <p class="card-body" style="margin-bottom: 0;">${cleanNewsBodyText(news.body, news.category)}</p>
+    </div>
+  `;
+  grid.appendChild(card);
+
+  // 개별 듣기 버튼 즉시 바인딩
+  const btn = card.querySelector('.btn-card-listen');
+  if (btn) {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.getAttribute('data-index'));
+      playNewsAtIndex(idx);
+    });
+  }
+}
+
+// 화면에 뉴스 카드 배치 (초기화 및 빈 상태용)
 function renderNewsList(list) {
   const grid = document.getElementById('news-grid');
   grid.innerHTML = '';
@@ -895,47 +1001,8 @@ function renderNewsList(list) {
     return;
   }
 
-  let lastCategory = '';
   list.forEach((news, index) => {
-    // 이전 카테고리와 다르면 그룹 헤더 추가 (박스 밖 왼쪽 위)
-    if (news.category !== lastCategory) {
-      const groupHeader = document.createElement('div');
-      groupHeader.className = 'category-group-header';
-      groupHeader.innerHTML = `
-        <span class="category-group-title ${news.category}">${news.category}</span>
-        <span class="category-group-line"></span>
-      `;
-      grid.appendChild(groupHeader);
-      lastCategory = news.category;
-    }
-
-    const card = document.createElement('article');
-    card.className = 'news-card';
-    card.id = `news-card-${index}`;
-    card.innerHTML = `
-      <div>
-        <div class="card-title-row" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px;">
-          <h2 class="card-title" style="margin: 0; flex: 1;">${news.title}</h2>
-          <div class="card-title-meta" style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
-            <span class="card-time" style="font-size: 12px; color: var(--text-muted); font-weight: 500;">${news.time}</span>
-            <button class="btn-card-listen" data-index="${index}" style="margin: 0;">
-              <i class="fa-solid fa-volume-high"></i>
-            </button>
-          </div>
-        </div>
-        <p class="card-body" style="margin-bottom: 0;">${cleanNewsBodyText(news.body, news.category)}</p>
-      </div>
-    `;
-    grid.appendChild(card);
-  });
-
-  // 개별 듣기 버튼 바인딩
-  document.querySelectorAll('.btn-card-listen').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const idx = parseInt(btn.getAttribute('data-index'));
-      playNewsAtIndex(idx);
-    });
+    appendNewsCard(news, index);
   });
 }
 
