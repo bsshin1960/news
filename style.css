@@ -409,8 +409,10 @@ body.light-theme .menu-bar-bottom {
 /* News Grid Layout */
 .news-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+  grid-template-columns: 1fr; /* 가로로 길게 1개만 배치 */
   gap: 24px;
+  max-width: 900px; /* 길게 배치 시 시각적 편안함을 위해 좌우 폭 제한 */
+  margin: 0 auto;
 }
 
 @media (max-width: 600px) {

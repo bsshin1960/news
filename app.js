@@ -542,6 +542,9 @@ async function fetchNews() {
       });
     }
 
+    // 증시, 경제 등 동일 항목은 연속해서 묶이도록 카테고리별 정렬 수행
+    state.newsList.sort((a, b) => a.category.localeCompare(b.category, 'ko'));
+
     renderNewsList(state.newsList);
     state.currentNewsIndex = -1;
     updatePlayerStatus('낭독 대기 중', '뉴스 수집이 완료되었습니다. 재생 버튼을 누르세요.');
