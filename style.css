@@ -440,10 +440,6 @@ body.light-theme .menu-bar-bottom {
     display: none !important;
   }
 
-  /* 모바일 로고에 TTS 다시 표시 */
-  .logo-tts {
-    display: inline !important;
-  }
 }
 
 /* Glassmorphism News Card */
