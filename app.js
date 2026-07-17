@@ -1089,7 +1089,7 @@ const result = [];
           });
 
           const rssNewsItem = {
-            id: generateNewsUniqueId(displayTitle, link),
+            id: Date.now() + i + Math.floor(Math.random() * 1000),
             category: category,
             title: displayTitle,
             body: body,
@@ -2402,7 +2402,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v25')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v26')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
