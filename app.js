@@ -1993,8 +1993,14 @@ function cleanNewsBodyText(body, category, sourceName = '') {
   cleaned = cleaned.replace(/\s*\[[^\]]*\]/g, '');
   cleaned = cleaned.replace(/\s*\([^)]*\)/g, '');
 
+  // 이메일 주소 제거 (예: dwise@yna.co.kr -> 삭제)
+  cleaned = cleaned.replace(/\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\s*/g, ' ');
+
   // "&" 문자를 앞 단어의 받침 여부에 따라 "와" 또는 "과"로 대체
   cleaned = replaceAmpersand(cleaned);
+
+  // 공백 정규화
+  cleaned = cleaned.replace(/\s+/g, ' ');
 
   return cleaned.trim();
 }
@@ -2372,7 +2378,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v17')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v18')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
