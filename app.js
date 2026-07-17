@@ -1010,23 +1010,16 @@ async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
       const items = xmlDoc.querySelectorAll('item');
       if (items.length === 0) continue;
 
-      const result = [];
+const result = [];
       const fallbackResult = [];
+      let articleTextAttempts = 0;
 
-      // 1. 후보군 필터링 (날짜 및 1차 도메인 유효성 검증을 거쳐 최대 5개 기사 선정)
-      const candidates = [];
-      for (let i = 0; i < items.length && candidates.length < 5; i++) {
+      for (let i = 0; i < items.length && i < RSS_MAX_ITEMS_TO_SCAN; i++) {
         const item = items[i];
         const rawTitle = item.querySelector('title')?.textContent || '';
-        const link = (item.querySelector('link')?.textContent || '').trim();
-        const pubDate = item.querySelector('pubDate')?.textContent || '';
-        const description = item.querySelector('description')?.textContent || '';
-        const publishedAt = pubDate ? new Date(pubDate) : null;
-        
-        if (!publishedAt || Number.isNaN(publishedAt.getTime()) || !isDateWithinNewsRecency(publishedAt)) {
-          continue;
-        }
+        let link = (item.querySelector('link')?.textContent || '').trim();
 
+        // 1차 도메인 검증 (RSS source tag 도메인 우선 검증)
         const sourceTag = item.querySelector('source');
         const sourceUrlAttr = sourceTag ? sourceTag.getAttribute('url') : '';
         const initialCheckUrl = sourceUrlAttr || link;
@@ -1034,12 +1027,14 @@ async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
           continue;
         }
 
-        candidates.push({ item, rawTitle, link, pubDate, description });
-      }
+        const pubDate = item.querySelector('pubDate')?.textContent || '';
+        const description = item.querySelector('description')?.textContent || '';
+        const publishedAt = pubDate ? new Date(pubDate) : null;
+        if (!publishedAt || Number.isNaN(publishedAt.getTime()) || !isDateWithinNewsRecency(publishedAt)) {
+          continue;
+        }
 
-      // 2. 비동기 병렬 상세 본문 조회 실행 (동시에 여러 기사 스크레핑하여 획기적으로 속도 향상)
-      const detailPromises = candidates.map(async (cand) => {
-        let title = cand.rawTitle.trim();
+        let title = rawTitle.trim();
         let sourceName = '뉴스 원문';
         const lastDashIndex = title.lastIndexOf(' - ');
         if (lastDashIndex !== -1) {
@@ -1047,81 +1042,68 @@ async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
           title = title.substring(0, lastDashIndex).trim();
         }
 
-        const cleanDesc = cand.description.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim();
+        const cleanDesc = description.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim();
         let articleBodyText = cleanDesc;
-        let finalLink = cand.link;
-
-        const needsFullText = !options.fastFirst && articleBodyText.length < RSS_MIN_BODY_CHARS;
-        if (needsFullText) {
-          try {
-            const articleDetails = await fetchArticleDetailsForRss(cand.link.trim());
-            if (isUsefulExtractedArticleTitle(articleDetails.title, title, sourceName)) {
-              title = articleDetails.title;
-            }
-            if (isUsefulExtractedArticleBody(articleDetails.text, articleBodyText)) {
-              articleBodyText = articleDetails.text;
-            }
-            if (articleDetails.finalUrl) {
-              finalLink = articleDetails.finalUrl;
-            }
-          } catch (e) {
-            console.warn('병렬 본문 스크레핑 실패:', e);
+        if (!options.fastFirst && articleBodyText.length < RSS_MIN_BODY_CHARS && articleTextAttempts < RSS_ARTICLE_TEXT_ATTEMPT_LIMIT) {
+          articleTextAttempts += 1;
+          const articleDetails = await fetchArticleDetailsForRss(link.trim());
+          if (isUsefulExtractedArticleTitle(articleDetails.title, title, sourceName)) {
+            title = articleDetails.title;
+          }
+          if (isUsefulExtractedArticleBody(articleDetails.text, articleBodyText)) {
+            articleBodyText = articleDetails.text;
+          }
+          if (articleDetails.finalUrl) {
+            link = articleDetails.finalUrl;
+          }
+          // 2차 도메인 검증 (최종 리다이렉트 해결 후 검증)
+          if (!isDomainSelected(link)) {
+            continue;
           }
         }
 
-        return {
-          title,
-          sourceName,
-          articleBodyText,
-          link: finalLink,
-          pubDate: cand.pubDate
-        };
-      });
-
-      const resolvedCandidates = await Promise.all(detailPromises);
-
-      // 3. 도메인 최종 검증 및 수집 결과 저장
-      for (const res of resolvedCandidates) {
-        if (!isDomainSelected(res.link)) {
-          continue;
+        const isShortRssBody = articleBodyText.length < RSS_MIN_BODY_CHARS;
+        if (isShortRssBody) {
+          console.info(`[${category}] RSS 본문이 ${RSS_MIN_BODY_CHARS}자 미만이지만 300자 이상 후보가 없을 때 예비로 사용:`, rawTitle.trim());
         }
 
         let timeStr = '오늘';
         try {
-          const d = new Date(res.pubDate);
+          const d = new Date(pubDate);
           if (!isNaN(d.getTime())) {
             const h = d.getHours();
             timeStr = `${d.getMonth() + 1}.${d.getDate()} ${h >= 12 ? '오후' : '오전'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`;
           }
         } catch (_) {}
 
-        const displayBody = cleanNewsBodyText(res.articleBodyText, category, res.sourceName);
-        const displayTitle = cleanNewsBodyText(res.title, category, res.sourceName);
+        const displayBody = cleanNewsBodyText(articleBodyText, category, sourceName);
+        const displayTitle = cleanNewsBodyText(title, category, sourceName);
 
-        if (res.sourceName && displayBody) {
+        if (sourceName && displayBody) {
           let body = ensureNewsBodyLength(displayBody || displayTitle, {
             title: displayTitle,
-            source_name: res.sourceName,
+            source_name: sourceName,
             category,
             time: timeStr,
             source_type: 'rss'
           });
 
-          const finalItem = {
-            id: generateNewsUniqueId(displayTitle, res.link),
-            category,
+          const rssNewsItem = {
+            id: generateNewsUniqueId(displayTitle, link),
+            category: category,
             title: displayTitle,
             body: body,
             time: timeStr,
-            source_name: res.sourceName,
-            source_url: res.link,
-            source_type: 'rss'
+            source_name: sourceName,
+            source_url: link.trim(),
+            source_type: 'rss',
+            is_short_rss_body: isShortRssBody
           };
-          
-          if (displayBody.length >= RSS_MIN_BODY_CHARS) {
-            result.push(finalItem);
+
+          if (isShortRssBody) {
+            fallbackResult.push(rssNewsItem);
           } else {
-            fallbackResult.push(finalItem);
+            result.push(rssNewsItem);
           }
         }
       }
@@ -2420,7 +2402,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v24')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v25')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
