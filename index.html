@@ -274,6 +274,99 @@
             </div>
           </div>
 
+          <!-- 검색 뉴스 출처 체크박스 그룹 -->
+          <div class="form-group">
+            <label class="form-label">검색 뉴스 출처 (선택 사항)</label>
+            <div class="checkbox-grid">
+              <label class="checkbox-container select-all-container" style="grid-column: 1 / -1; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 8px;">
+                <input type="checkbox" id="source-all" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                <span style="font-weight: 700; color: var(--primary);">전체 선택</span>
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="ytn" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                YTN
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="yna" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                연합뉴스
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="munhwa" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                문화일보
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="kmib" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                국민일보
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="chosun" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                조선일보
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="joongang" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                중앙일보
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="donga" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                동아일보
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="mk" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                매일경제
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="hankyung" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                한국경제
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="khan" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                경향신문
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="hani" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                한겨레
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="seoul" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                서울신문
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="segye" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                세계일보
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="hankookilbo" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                한국일보
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="sedaily" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                서울경제
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" name="sources" value="mt" checked>
+                <span class="checkbox-custom"><i class="fa-solid fa-check"></i></span>
+                머니투데이
+              </label>
+            </div>
+            <span class="form-help">선택된 언론사의 기사로 제한하여 뉴스를 검색합니다. 모두 해제하거나 모두 선택하면 전체 언론사에서 검색합니다.</span>
+          </div>
+
           <!-- 복구된 API Key 및 요구사항 입력 영역 -->          <div class="form-group">
             <label class="form-label" for="news-source-mode">뉴스 수집 방식</label>
             <select id="news-source-mode" class="form-control">

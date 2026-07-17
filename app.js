@@ -37,8 +37,37 @@ const NAVER_NEWS_CORS_PROXIES = [
   'https://api.codetabs.com/v1/proxy?quest='
 ];
 
+const NEWS_SOURCE_DOMAINS = {
+  ytn: 'ytn.co.kr',
+  yna: 'yna.co.kr',
+  munhwa: 'munhwa.com',
+  kmib: 'kmib.co.kr',
+  chosun: 'chosun.com',
+  joongang: 'joongang.co.kr',
+  donga: 'donga.com',
+  mk: 'mk.co.kr',
+  hankyung: 'hankyung.com',
+  khan: 'khan.co.kr',
+  hani: 'hani.co.kr',
+  seoul: 'seoul.co.kr',
+  segye: 'segye.com',
+  hankookilbo: 'hankookilbo.com',
+  sedaily: 'sedaily.com',
+  mt: 'mt.co.kr'
+};
+
+function getQuerySourceFilter() {
+  if (!state.sources || state.sources.length === 0 || state.sources.length === Object.keys(NEWS_SOURCE_DOMAINS).length) {
+    return '';
+  }
+  const domains = state.sources.map(src => NEWS_SOURCE_DOMAINS[src]).filter(Boolean);
+  if (domains.length === 0) return '';
+  return ' (' + domains.map(d => `site:${d}`).join(' OR ') + ')';
+}
+
 let state = {
   categories: ['정치', '경제', '증시', '과학', '날씨', '사회', '스포츠', '문화', 'AI뉴스', '건강', '연예', '산업'],
+  sources: ['ytn', 'yna', 'munhwa', 'kmib', 'chosun', 'joongang', 'donga', 'mk', 'hankyung', 'khan', 'hani', 'seoul', 'segye', 'hankookilbo', 'sedaily', 'mt'],
   prompt: '',
   apiKey: '',
   openaiApiKey: '',
@@ -372,6 +401,26 @@ function initStorage() {
   // 전체 선택 체크박스 동기화
   const allChecked = categoryCbs.length > 0 && Array.from(categoryCbs).every(cb => cb.checked);
   const categoryAll = document.getElementById('category-all');
+  const savedSources = localStorage.getItem('news_sources');
+  if (savedSources) {
+    state.sources = JSON.parse(savedSources);
+  } else {
+    state.sources = Object.keys(NEWS_SOURCE_DOMAINS);
+  }
+
+  // 검색 뉴스 출처 바인딩
+  const sourceCbs = document.querySelectorAll('input[name="sources"]');
+  sourceCbs.forEach(cb => {
+    cb.checked = state.sources.includes(cb.value);
+  });
+
+  const allSourcesChecked = sourceCbs.length > 0 && Array.from(sourceCbs).every(cb => cb.checked);
+  const sourceAll = document.getElementById('source-all');
+  if (sourceAll) {
+    sourceAll.checked = allSourcesChecked;
+  }
+
+  
   if (categoryAll) {
     categoryAll.checked = allChecked;
   }
@@ -683,6 +732,28 @@ function bindUIEvents() {
     });
   });
 
+  // --- 검색 출처 전체 선택 (Select All) 제어 ---
+  const sourceAll = document.getElementById('source-all');
+  const sourceInputs = document.querySelectorAll('input[name="sources"]');
+
+  if (sourceAll) {
+    sourceAll.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      sourceInputs.forEach(cb => {
+        cb.checked = isChecked;
+      });
+    });
+  }
+
+  sourceInputs.forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (sourceAll) {
+        const allChecked = Array.from(sourceInputs).every(item => item.checked);
+        sourceAll.checked = allChecked;
+      }
+    });
+  });
+
   // --- 퀵 설정 버튼 제어 ---
   const btnQuickSettings = document.getElementById('btn-quick-settings');
   if (btnQuickSettings) {
@@ -735,6 +806,10 @@ function closeModal(id) {
 
 // 설정 값 로컬 저장소 저장
 function saveSettings() {
+  const selectedSources = Array.from(document.querySelectorAll('input[name="sources"]:checked')).map(cb => cb.value);
+  state.sources = selectedSources;
+  localStorage.setItem('news_sources', JSON.stringify(selectedSources));
+
   const selectedCategories = Array.from(document.querySelectorAll('input[name="categories"]:checked')).map(cb => cb.value);
   const promptValue = document.getElementById('prompt-input').value;
   const apiKeyValue = document.getElementById('api-key-input').value.trim();
@@ -847,7 +922,8 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
 // ====================================================
 async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname);
-  const query = encodeURIComponent(`${category} 최신 뉴스 when:12h`);
+  const siteFilter = getQuerySourceFilter();
+  const query = encodeURIComponent(`${category} 최신 뉴스 when:12h${siteFilter}`);
   const targetPath = `/rss/search?q=${query}&hl=ko&gl=KR&ceid=KR:ko`;
 
   const urls = [];
@@ -1352,7 +1428,9 @@ async function fetchOpenAINewsForCategory(apiKey, category, prompt, count = 1) {
     ? '/api/openai/v1/responses'
     : 'https://api.openai.com/v1/responses';
 
-  const input = `오늘은 ${kstInfo.label}입니다. 한국 기준 최근 12시간 이내에 실제 보도된 ${category} 최신 뉴스 ${count}건을 찾아 JSON 배열로만 답하세요. 각 항목은 id, category, title, body, time, source_name, source_url 필드를 포함해야 합니다. body는 ${detailSentenceRange}문장, ${detailCharRange}, 약 ${detailChars}자 기준으로 작성하되 같은 내용을 반복하지 마세요. source_url은 실제 기사 원문 URL이어야 합니다. 추가 요구사항: ${prompt || '핵심을 친절하게 설명해 주세요.'}`;
+  const siteFilter = getQuerySourceFilter();
+  const siteRestriction = siteFilter ? ` 검색 시 반드시 다음 언론사 필터를 쿼리에 포함하고, 검색된 해당 언론사 뉴스 기사만을 대상으로 하십시오: ${siteFilter}` : '';
+  const input = `오늘은 ${kstInfo.label}입니다. 한국 기준 최근 12시간 이내에 실제 보도된 ${category} 최신 뉴스 ${count}건을 찾아 JSON 배열로만 답하세요.${siteRestriction} 각 항목은 id, category, title, body, time, source_name, source_url 필드를 포함해야 합니다. body는 ${detailSentenceRange}문장, ${detailCharRange}, 약 ${detailChars}자 기준으로 작성하되 같은 내용을 반복하지 마세요. source_url은 실제 기사 원문 URL이어야 합니다. 추가 요구사항: ${prompt || '핵심을 친절하게 설명해 주세요.'}`;
 
   const resp = await fetch(targetUrl, {
     method: 'POST',
@@ -1527,6 +1605,8 @@ async function fetchNews() {
 
 // Gemini API를 사용하여 단일 카테고리에 대한 뉴스 요약 생성 (속도 극대화, 개수 동적)
 async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, options = {}) {
+  const siteFilter = getQuerySourceFilter();
+  const siteConstraint = siteFilter ? `\\n    3. **구글 실시간 검색 시 반드시 다음 언론사 필터링 연산자를 쿼리 끝에 붙여 검색하십시오: ${siteFilter}**` : '';
   // 대한민국 표준시(KST) 기준 시간 표기 생성
   const now = new Date();
   const kstInfo = getKstDateInfo(now);
@@ -1543,7 +1623,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
     시간 및 구글 검색 중요 지침 (가장 중요):
     현재 한국 표준시(KST) 시각은 [ ${currentLocalTimeStr} ], 오늘은 [ ${kstInfo.label} ] 입니다.
     1. **반드시 google_search 도구를 사용하여 오늘 날짜인 [ ${kstInfo.label} ]에 실제로 발행 및 보도된 실시간 기사 1건만 즉시 찾아내십시오.**
-    2. 검색할 때 \`[ ${category} ${kstInfo.label} 최신 뉴스 ]\` 또는 \`[ ${kstInfo.label} 오늘 ${category} ]\` 와 같이 정확한 연도와 오늘 날짜를 구글 검색 쿼리에 명시하여 12시간 이내의 진짜 최신 실시간 뉴스만을 검색하도록 강제하십시오.
+    2. 검색할 때 \`[ ${category} ${kstInfo.label} 최신 뉴스 ]\` 또는 \`[ ${kstInfo.label} 오늘 ${category} ]\` 와 같이 정확한 연도와 오늘 날짜를 구글 검색 쿼리에 명시하여 12시간 이내의 진짜 최신 실시간 뉴스만을 검색하도록 강제하십시오.${siteConstraint}
     3. 과거 학습 데이터나 12시간이 지난 옛날 기사는 절대 요약하지 마십시오.
     4. source_url은 검색 결과의 실제 상세 기사 URL이어야 합니다.
 
@@ -1562,7 +1642,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
     시간 및 검색 규정 (가장 엄격히 준수):
     현재 대한민국의 로컬 시각은 한국 표준시(KST) 기준 [ ${currentLocalTimeStr} ] 이며, 오늘은 [ ${kstInfo.label} ] 입니다.
     1. **반드시 google_search 도구를 적극 사용해 오늘 현재 시각 기준 "최근 12시간 이내"에 대한민국 메이저 언론사 등에 실제 보도된 실시간 최신 뉴스 및 사건들만 검색하여 요약 기재해야 합니다.**
-    2. 구글 실시간 검색 시 \`[ ${category} ${kstInfo.label} 최신 뉴스 ]\` 또는 \`[ ${kstInfo.label} 오늘 ${category} 주요 뉴스 ]\` 와 같이 정확한 연도와 오늘 날짜를 구글 검색 쿼리에 반드시 명시하여 12시간이 지나지 않은 최신 속보만 수집하도록 강제하십시오.
+    2. 구글 실시간 검색 시 \`[ ${category} ${kstInfo.label} 최신 뉴스 ]\` 또는 \`[ ${kstInfo.label} 오늘 ${category} 주요 뉴스 ]\` 와 같이 정확한 연도와 오늘 날짜를 구글 검색 쿼리에 반드시 명시하여 12시간이 지나지 않은 최신 속보만 수집하도록 강제하십시오.${siteConstraint}
     3. 과거에 이미 학습한 옛날 데이터나 가공의 기사, 혹은 12시간이 지난 과거 날짜의 뉴스는 절대로 들려주어서는 안 됩니다. 무조건 오늘 실제 발생한 시사/뉴스 검색 결과만 사용하십시오.
     4. 수집된 최신 뉴스의 정확한 보도 시각을 바탕으로 JSON의 "time" 필드를 채우십시오.
     5. **출처 검증 규정 (극도로 중요 - 절대 변조 금지)**:
