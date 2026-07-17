@@ -1775,50 +1775,8 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
 
 // 임시 샘플(Mock) 뉴스 노출 여부에 따라 상단 경고 배너를 업데이트하는 함수
 function updateMockWarningBanner() {
-  const hasMock = state.newsList.some(item => item.isMock || item.source_type === 'mock');
-  const hasRss = state.newsList.some(item => item.source_type === 'rss');
-  const hasGemini = state.newsList.some(item => item.source_type === 'gemini');
-  const hasApiKey = Boolean((state.apiKey || '').trim());
   const banner = document.getElementById('mock-warning-banner');
-
-  let message = '';
-  let icon = 'fa-circle-info';
-
-  if (hasMock) {
-    icon = 'fa-triangle-exclamation';
-    if (hasApiKey) {
-      const geminiInfo = state.lastGeminiError ? ` Gemini 오류: ${state.lastGeminiError}` : '';
-      const rssInfo = state.lastRssError ? ` RSS 오류: ${state.lastRssError}` : '';
-      message = `Gemini API Key는 저장되어 있지만 Gemini 또는 뉴스 수집 요청이 실패해 임시 샘플 뉴스가 표시되고 있습니다.${geminiInfo}${rssInfo}`;
-    } else {
-      message = 'Gemini API Key가 저장되어 있지 않아 RSS로 시도했고, RSS 수집도 실패해 임시 샘플 뉴스가 표시되고 있습니다. 설정에서 API Key를 입력하고 저장해 주세요.';
-    }
-  } else if (hasRss && !hasGemini) {
-    if (hasApiKey) {
-      const detail = state.lastGeminiError ? ` 마지막 Gemini 오류: ${state.lastGeminiError}` : '';
-      message = `Gemini API Key는 저장되어 있지만 Gemini 요청이 실패해 Google News RSS로 표시 중입니다.${detail}`;
-    } else {
-      message = '현재 Gemini API Key가 저장되어 있지 않아 Google News RSS로 뉴스를 표시 중입니다. 긴 맞춤 브리핑을 원하면 설정에서 Gemini API Key를 입력하고 저장해 주세요.';
-    }
-  } else if (hasRss && hasGemini) {
-    const detail = state.lastGeminiError ? ` 마지막 Gemini 오류: ${state.lastGeminiError}` : '';
-    message = `일부 항목은 Gemini API 대신 Google News RSS로 보완했습니다. API 한도, 키 권한, 네트워크 상태에 따라 자동 전환될 수 있습니다.${detail}`;
-  }
-
-  if (message) {
-    if (!banner) {
-      const newBanner = document.createElement('div');
-      newBanner.id = 'mock-warning-banner';
-      newBanner.className = 'mock-warning-banner';
-      newBanner.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
-      const main = document.querySelector('.main-content');
-      if (main) {
-        main.insertBefore(newBanner, main.firstChild);
-      }
-    } else {
-      banner.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
-    }
-  } else if (banner) {
+  if (banner) {
     banner.remove();
   }
 }
