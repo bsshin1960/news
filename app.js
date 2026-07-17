@@ -1800,8 +1800,15 @@ function updateMockWarningBanner() {
 }
 
 // 뉴스 본문에서 "첫째, 둘째" 및 "[카테고리] 뉴스입니다" 같은 불필요한 단어를 정제하는 헬퍼 함수
+function decodeHtmlEntities(text) {
+  if (!text) return '';
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+}
+
 function cleanNewsBodyText(body, category, sourceName = '') {
-  let cleaned = body;
+  let cleaned = decodeHtmlEntities(body);
 
   if (category) {
     const categoryIntroRegex = new RegExp(`^${category}\\s*(뉴스|소식)입니다\\.?\\s*`, 'i');
@@ -1826,6 +1833,9 @@ function cleanNewsBodyText(body, category, sourceName = '') {
       cleaned = cleaned.replace(new RegExp(`\\s*(?:[-–—|·•]\\s*)?${escapedSource}\\s*$`, 'i'), '');
     }
   }
+  // 한글(영어) 중복 표기 생략 (예: 세계 AI 컨퍼런스(WAIC) -> 세계 AI 컨퍼런스)
+  cleaned = cleaned.replace(/\s*\(\s*[a-zA-Z0-9\s&_\-./#+×]+\s*\)/g, '');
+
   return cleaned.trim();
 }
 
