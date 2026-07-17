@@ -86,11 +86,20 @@ function isDomainSelected(urlText) {
 }
 
 function getQuerySourceFilter() {
-  if (!Array.isArray(state.sources) || state.sources.length === 0 || state.sources.length > 10) {
-    // 10개 초과 선택 시 구글 검색 32단어 글자수 한도 초과로 인한 검색 쿼리 손상 방지를 위해 쿼리 연산자는 생략하고 클라이언트 도메인 필터링에 의존
+  if (!Array.isArray(state.sources) || state.sources.length === 0) {
     return '';
   }
-  const domains = state.sources.map(src => NEWS_SOURCE_DOMAINS[src]).filter(Boolean);
+  // 체크된 출처 중 최대 3개를 무작위로 샘플링하여 쿼리 빌드 (연합뉴스 등 특정 매체 편중 방지)
+  const availableSources = [...state.sources];
+  const sampleSize = Math.min(3, availableSources.length);
+  const sampledSources = [];
+  
+  for (let i = 0; i < sampleSize; i++) {
+    const randIdx = Math.floor(Math.random() * availableSources.length);
+    sampledSources.push(availableSources.splice(randIdx, 1)[0]);
+  }
+
+  const domains = sampledSources.map(src => NEWS_SOURCE_DOMAINS[src]).filter(Boolean);
   if (domains.length === 0) return '';
   return ' (' + domains.map(d => `site:${d}`).join(' OR ') + ')';
 }
@@ -2393,7 +2402,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v22')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v23')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
