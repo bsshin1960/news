@@ -235,6 +235,24 @@ function ensureNewsBodyLength(body, meta = {}) {
     base = `${title}.`;
   }
 
+  // RSS나 외부 텍스트 추출물 등의 대용량 본문을 설정값(500자 내외)에 맞게 문장 단위로 절삭
+  const maxChars = getNewsDetailMaxChars();
+  if (base.length > maxChars) {
+    const sub = base.substring(0, maxChars);
+    const lastSentenceIdx = Math.max(
+      sub.lastIndexOf('. '),
+      sub.lastIndexOf('? '),
+      sub.lastIndexOf('! '),
+      sub.lastIndexOf('다. ')
+    );
+    if (lastSentenceIdx > maxChars - 150) {
+      const offset = (sub.charAt(lastSentenceIdx) === '다') ? 2 : 1;
+      base = base.substring(0, lastSentenceIdx + offset).trim();
+    } else {
+      base = base.substring(0, maxChars - 3).trim() + '...';
+    }
+  }
+
   return base;
 }
 function isUsefulExtractedArticleTitle(extractedTitle, rssTitle, sourceName) {
