@@ -53,7 +53,15 @@ const NEWS_SOURCE_DOMAINS = {
   segye: 'segye.com',
   hankookilbo: 'hankookilbo.com',
   sedaily: 'sedaily.com',
-  mt: 'mt.co.kr'
+  mt: 'mt.co.kr',
+  kbs: 'kbs.co.kr',
+  mbc: 'imbc.com',
+  sbs: 'sbs.co.kr',
+  obc: 'obsnews.co.kr',
+  naver: 'naver.com',
+  daum: 'daum.net',
+  google: 'google.com',
+  x: 'x.com'
 };
 
 function getQuerySourceFilter() {
@@ -67,7 +75,7 @@ function getQuerySourceFilter() {
 
 let state = {
   categories: ['정치', '경제', '증시', '과학', '날씨', '사회', '스포츠', '문화', 'AI뉴스', '건강', '연예', '산업'],
-  sources: ['ytn', 'yna', 'munhwa', 'kmib', 'chosun', 'joongang', 'donga', 'mk', 'hankyung', 'khan', 'hani', 'seoul', 'segye', 'hankookilbo', 'sedaily', 'mt'],
+  sources: ['ytn', 'yna', 'munhwa', 'kmib', 'chosun', 'joongang', 'donga', 'mk', 'hankyung', 'khan', 'hani', 'seoul', 'segye', 'hankookilbo', 'sedaily', 'mt', 'kbs', 'mbc', 'sbs', 'obc', 'naver', 'daum', 'google', 'x'],
   prompt: '',
   apiKey: '',
   openaiApiKey: '',
@@ -2321,7 +2329,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v14')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v15')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
