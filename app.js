@@ -1807,6 +1807,31 @@ function decodeHtmlEntities(text) {
   return textarea.value;
 }
 
+function replaceAmpersand(text) {
+  if (!text) return '';
+  return text.replace(/&/g, (match, offset, string) => {
+    let prevChar = '';
+    for (let i = offset - 1; i >= 0; i--) {
+      const char = string.charAt(i);
+      if (!/\s/.test(char)) {
+        prevChar = char;
+        break;
+      }
+    }
+    if (!prevChar) return '와';
+    const code = prevChar.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      const batchim = (code - 0xAC00) % 28;
+      return batchim > 0 ? '과' : '와';
+    }
+    const lastCharLower = prevChar.toLowerCase();
+    if (/[013678lmnr]/.test(lastCharLower)) {
+      return '과';
+    }
+    return '와';
+  });
+}
+
 function cleanNewsBodyText(body, category, sourceName = '') {
   let cleaned = decodeHtmlEntities(body);
 
@@ -1833,8 +1858,12 @@ function cleanNewsBodyText(body, category, sourceName = '') {
       cleaned = cleaned.replace(new RegExp(`\\s*(?:[-–—|·•]\\s*)?${escapedSource}\\s*$`, 'i'), '');
     }
   }
-  // 한글(영어) 중복 표기 생략 (예: 세계 AI 컨퍼런스(WAIC) -> 세계 AI 컨퍼런스)
-  cleaned = cleaned.replace(/\s*\(\s*[a-zA-Z0-9\s&_\-./#+×]+\s*\)/g, '');
+  // "[ ]" 또는 "( )" 안의 내용 전체 삭제 (한글/영어 모두 포함)
+  cleaned = cleaned.replace(/\s*\[[^\]]*\]/g, '');
+  cleaned = cleaned.replace(/\s*\([^)]*\)/g, '');
+
+  // "&" 문자를 앞 단어의 받침 여부에 따라 "와" 또는 "과"로 대체
+  cleaned = replaceAmpersand(cleaned);
 
   return cleaned.trim();
 }
@@ -2069,12 +2098,11 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
     speakText += `${news.category} 소식입니다. `;
   }
 
-  // 2. 제목 추가
-  speakText += processedTitle;
-
-  // 3. 본문 추가 (본문 읽기 대상인 경우 추가)
+  // 2. 제목/본문 추가 (본문이 있으면 제목 생략, 없으면 제목 낭독)
   if (shouldReadBody) {
-    speakText += ` ${processedBody}`;
+    speakText += processedBody;
+  } else {
+    speakText += processedTitle;
   }
 
   currentUtterance = new SpeechSynthesisUtterance(speakText);
