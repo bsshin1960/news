@@ -2119,7 +2119,7 @@ function appendNewsCard(news, index) {
     : `<span class="news-source-text">${sourceName}</span>`;
   const displayTitle = cleanNewsBodyText(news.title, news.category, news.source_name);
   const displayBody = cleanNewsBodyText(news.body, news.category, news.source_name);
-  const shouldShowBody = displayBody && normalizeNewsCompareText(displayBody) !== normalizeNewsCompareText(displayTitle);
+  const shouldShowBody = (state.briefingMode === 'body_only') || (displayBody && normalizeNewsCompareText(displayBody) !== normalizeNewsCompareText(displayTitle));
   
   let initialDisplay = 'none';
   let initialOpacity = '0';
@@ -2314,7 +2314,7 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
   // 본문 가공: 텍스트 클리너를 적용하여 "첫째, 둘째, 증시 뉴스입니다" 등 군더더기 전면 삭제
   const processedTitle = cleanNewsBodyText(news.title, news.category, news.source_name);
   const processedBody = cleanNewsBodyText(news.body, news.category, news.source_name);
-  const shouldReadBody = processedBody && normalizeNewsCompareText(processedBody) !== normalizeNewsCompareText(processedTitle);
+  const shouldReadBody = (state.briefingMode === 'body_only') || (processedBody && normalizeNewsCompareText(processedBody) !== normalizeNewsCompareText(processedTitle));
 
   // 1. 카테고리가 최초로 시작할 때만 카테고리 정보 안내 (헤드라인 페이즈는 생략)
   if (!isSameCategory && state.briefingPhase !== 'headlines') {
@@ -2506,7 +2506,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v34')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v35')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
