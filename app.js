@@ -64,8 +64,30 @@ const NEWS_SOURCE_DOMAINS = {
   x: 'x.com'
 };
 
-function getQuerySourceFilter() {
+function isDomainSelected(urlText) {
+  if (!urlText) return false;
   if (!state.sources || state.sources.length === 0) {
+    return true; // 아무것도 선택하지 않은 경우 전체 허용
+  }
+  try {
+    const url = new URL(urlText);
+    const hostname = url.hostname.toLowerCase();
+    return state.sources.some(src => {
+      const domain = NEWS_SOURCE_DOMAINS[src];
+      return domain && (hostname === domain || hostname.endsWith('.' + domain));
+    });
+  } catch (_) {
+    // news.google.com articles 같은 상대경로나 특수링크의 경우 우선 통과 후 최종 도메인 검증
+    if (urlText.startsWith('http://') || urlText.startsWith('https://')) {
+      return false;
+    }
+    return true;
+  }
+}
+
+function getQuerySourceFilter() {
+  if (!state.sources || state.sources.length === 0 || state.sources.length > 10) {
+    // 10개 초과 선택 시 구글 검색 32단어 글자수 한도 초과로 인한 검색 쿼리 손상 방지를 위해 쿼리 연산자는 생략하고 클라이언트 도메인 필터링에 의존
     return '';
   }
   const domains = state.sources.map(src => NEWS_SOURCE_DOMAINS[src]).filter(Boolean);
@@ -978,7 +1000,16 @@ async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
       for (let i = 0; i < items.length && i < RSS_MAX_ITEMS_TO_SCAN; i++) {
         const item = items[i];
         const rawTitle = item.querySelector('title')?.textContent || '';
-        let link = item.querySelector('link')?.textContent || '';
+        let link = (item.querySelector('link')?.textContent || '').trim();
+
+        // 1차 도메인 검증 (RSS source tag 도메인 우선 검증)
+        const sourceTag = item.querySelector('source');
+        const sourceUrlAttr = sourceTag ? sourceTag.getAttribute('url') : '';
+        const initialCheckUrl = sourceUrlAttr || link;
+        if (!isDomainSelected(initialCheckUrl)) {
+          continue;
+        }
+
         const pubDate = item.querySelector('pubDate')?.textContent || '';
         const description = item.querySelector('description')?.textContent || '';
         const publishedAt = pubDate ? new Date(pubDate) : null;
@@ -1007,6 +1038,10 @@ async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
           }
           if (articleDetails.finalUrl) {
             link = articleDetails.finalUrl;
+          }
+          // 2차 도메인 검증 (최종 리다이렉트 해결 후 검증)
+          if (!isDomainSelected(link)) {
+            continue;
           }
         }
 
@@ -1488,7 +1523,7 @@ async function fetchOpenAINewsForCategory(apiKey, category, prompt, count = 1) {
     source_name: item.source_name || item.sourceName || '뉴스 원문',
     source_url: item.source_url || item.sourceUrl || item.url || '',
     source_type: 'openai'
-  })).filter(item => item.body && item.source_url && isRecentNewsTime(item.time, now));
+  })).filter(item => item.body && item.source_url && isDomainSelected(item.source_url) && isRecentNewsTime(item.time, now));
 
   return selectRandomUnseenNewsItems(normalizedItems, count);
 }
@@ -1861,7 +1896,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
         };
       });
 
-      const verifiedItems = normalizedItems.filter(item => !item.isExpired && isLikelyDetailedArticleUrl(item.source_url) && item.body && item.body.trim());
+      const verifiedItems = normalizedItems.filter(item => !item.isExpired && isLikelyDetailedArticleUrl(item.source_url) && isDomainSelected(item.source_url) && item.body && item.body.trim());
       if (verifiedItems.length === 0) {
         lastError = `모델 ${model}: 최근 12시간 이내의 검증된 실시간 뉴스가 없거나 필터링됨`;
         continue;
@@ -2329,7 +2364,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v15')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v16')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
