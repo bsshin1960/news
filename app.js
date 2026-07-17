@@ -29,6 +29,11 @@ const MAX_NEWS_DETAIL_CHARS = 500;
 let nextGeminiRequestAt = 0;
 let geminiRequestQueue = Promise.resolve();
 
+// 모바일 브라우저 전력 관리 및 백그라운드 세션 유지용 변수
+let wakeLock = null;
+let audioCtx = null;
+let silentAudioInterval = null;
+
 // 네이버 뉴스 RSS 피드 실시간 수집 설정 (API 키 없이도 최신 뉴스 제공)
 const NAVER_NEWS_RSS_FETCH_TIMEOUT_MS = 15000;
 const NAVER_NEWS_CORS_PROXIES = [
@@ -2201,11 +2206,17 @@ function togglePlayPause() {
       synth.resume();
       state.isPaused = false;
       updatePlayerControlsUI(true, false);
+      
+      requestWakeLock();
+      startSilentAudioHack();
     } else {
       // 일시정지 실행
       synth.pause();
       state.isPaused = true;
       updatePlayerControlsUI(true, true);
+      
+      releaseWakeLock();
+      stopSilentAudioHack();
     }
   } else {
     // 처음부터 재생 시작 (인트로 활성화)
@@ -2284,6 +2295,10 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
   state.isPlaying = true;
   state.isPaused = false;
   state.currentNewsIndex = index;
+
+  // 모바일 환경 최적화 기기 잠금 방지 및 백그라운드 활성 킵
+  requestWakeLock();
+  startSilentAudioHack();
 
   const news = state.newsList[index];
 
@@ -2411,6 +2426,10 @@ function stopSpeech(resetUI = true) {
       showAllCardBodies();
     }
     updatePlayerControlsUI(false, false);
+    
+    // 모바일 환경 최적화 기기 잠금 방지 해제 및 백그라운드 해제
+    releaseWakeLock();
+    stopSilentAudioHack();
     updatePlayerStatus('낭독 중지됨', '재생 버튼을 누르면 첫 뉴스부터 재생합니다.');
     document.getElementById('player-progress').style.width = '0%';
   }
@@ -2503,10 +2522,85 @@ function updatePlayerStatus(title, desc) {
 // ====================================================
 // 6. PWA 서비스 워커 등록 & 네트워크 핸들링
 // ====================================================
+// 모바일 기기 화면 꺼짐 방지 (Wake Lock API)
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('Screen Wake Lock acquired.');
+    }
+  } catch (err) {
+    console.warn('Wake Lock request failed:', err.message);
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release().then(() => {
+      wakeLock = null;
+      console.log('Screen Wake Lock released.');
+    });
+  }
+}
+
+// 모바일 백그라운드 자바스크립트 수면 차단용 무음 오디오 활성화
+function startSilentAudioHack() {
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    if (!silentAudioInterval) {
+      silentAudioInterval = setInterval(() => {
+        if (audioCtx && audioCtx.state === 'running') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          gain.gain.setValueAtTime(0.0001, audioCtx.currentTime); // 무음에 가까운 볼륨
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.1);
+        }
+      }, 1000);
+      console.log('Mobile background audio hack started.');
+    }
+  } catch (e) {
+    console.warn('Silent audio hack failed:', e);
+  }
+}
+
+function stopSilentAudioHack() {
+  if (silentAudioInterval) {
+    clearInterval(silentAudioInterval);
+    silentAudioInterval = null;
+  }
+  if (audioCtx && audioCtx.state !== 'closed') {
+    audioCtx.close().then(() => {
+      audioCtx = null;
+    });
+  }
+  console.log('Mobile background audio hack stopped.');
+}
+
+// 모바일 브라우저 오디오 오토플레이 제한 잠금 해제
+function unlockTtsOnMobile() {
+  if (window.speechSynthesis) {
+    const silentUtterance = new SpeechSynthesisUtterance('');
+    window.speechSynthesis.speak(silentUtterance);
+    console.log('Mobile TTS unlocked via user gesture.');
+  }
+  document.removeEventListener('click', unlockTtsOnMobile);
+  document.removeEventListener('touchstart', unlockTtsOnMobile);
+}
+document.addEventListener('click', unlockTtsOnMobile);
+document.addEventListener('touchstart', unlockTtsOnMobile);
+
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v36')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v37')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
