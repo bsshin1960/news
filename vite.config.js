@@ -30,17 +30,33 @@ function decodeHtmlResponse(buffer, contentType = '') {
     ''
   ).toLowerCase();
 
+  if (charset && (charset === 'euc-kr' || charset === 'cp949' || charset === 'ks_c_5601-1987')) {
+    try {
+      return new TextDecoder('euc-kr').decode(bytes);
+    } catch (_) {}
+  }
+
+  // 자동 한글 깨짐 (EUC-KR 모지바케) 지능형 감지
+  const hasReplacementChar = utf8.includes('\uFFFD');
+  const koreanMatches = utf8.match(/[가-힣]/g);
+  const koreanCount = koreanMatches ? koreanMatches.length : 0;
+  const chineseMatches = utf8.match(/[\u4e00-\u9fff]/g);
+  const chineseCount = chineseMatches ? chineseMatches.length : 0;
+
+  if (hasReplacementChar || (chineseCount > 50 && chineseCount > koreanCount) || (koreanCount > 0 && koreanCount < 20)) {
+    try {
+      const euckr = new TextDecoder('euc-kr').decode(bytes);
+      const euckrKoreanMatches = euckr.match(/[가-힣]/g);
+      const euckrKoreanCount = euckrKoreanMatches ? euckrKoreanMatches.length : 0;
+      if (euckrKoreanCount > koreanCount * 2) {
+        return euckr;
+      }
+    } catch (_) {}
+  }
+
   if (charset && charset !== 'utf-8' && charset !== 'utf8') {
     try {
       return new TextDecoder(charset).decode(bytes);
-    } catch (_) {
-      return utf8;
-    }
-  }
-
-  if (utf8.includes('\uFFFD') || /charset=(?:euc-kr|ks_c_5601-1987|cp949)/i.test(utf8)) {
-    try {
-      return new TextDecoder('euc-kr').decode(bytes);
     } catch (_) {
       return utf8;
     }
