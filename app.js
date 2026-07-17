@@ -1993,6 +1993,11 @@ function cleanNewsBodyText(body, category, sourceName = '') {
   cleaned = cleaned.replace(/\s*\[[^\]]*\]/g, '');
   cleaned = cleaned.replace(/\s*\([^)]*\)/g, '');
 
+  // 연월일 및 시각 날짜 패턴 제거 (예: 2026-07-17 09:50 송고, 2026년07월17일 09시50 등)
+  cleaned = cleaned.replace(/\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\s+\d{1,2}[:시]\d{1,2}(?:\s*분)?(?:\s*[가-힣]{2,4})?/g, ' ');
+  cleaned = cleaned.replace(/\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일\s*(?:\s*\d{1,2}\s*시\s*\d{1,2}\s*분?)?/g, ' ');
+  cleaned = cleaned.replace(/\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\.?\b/g, ' ');
+
   // 이메일 주소 제거 (예: dwise@yna.co.kr -> 삭제)
   cleaned = cleaned.replace(/\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\s*/g, ' ');
 
@@ -2378,7 +2383,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v18')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v19')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
