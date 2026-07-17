@@ -2118,7 +2118,7 @@ function appendNewsCard(news, index) {
     : `<span class="news-source-text">${sourceName}</span>`;
   const displayTitle = cleanNewsBodyText(news.title, news.category, news.source_name);
   const displayBody = cleanNewsBodyText(news.body, news.category, news.source_name);
-  const shouldShowBody = index >= 5 && displayBody && normalizeNewsCompareText(displayBody) !== normalizeNewsCompareText(displayTitle);
+  const shouldShowBody = displayBody && normalizeNewsCompareText(displayBody) !== normalizeNewsCompareText(displayTitle);
   const bodyHtml = shouldShowBody
     ? `<p class="card-body">${escapeHtml(displayBody)}</p>`
     : '';
@@ -2255,15 +2255,11 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
     speakText += `${news.category} 소식입니다. `;
   }
 
-  // 2. 제목/본문 추가 (처음 5개 카드는 제목만 낭독, 이후는 본문만 낭독)
-  if (index < 5) {
-    speakText += processedTitle;
+  // 2. 제목/본문 추가 (본문이 있으면 제목 생략, 없으면 제목 낭독)
+  if (shouldReadBody) {
+    speakText += processedBody;
   } else {
-    if (shouldReadBody) {
-      speakText += processedBody;
-    } else {
-      speakText += processedTitle;
-    }
+    speakText += processedTitle;
   }
 
   currentUtterance = new SpeechSynthesisUtterance(speakText);
@@ -2402,7 +2398,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v26')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v27')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
