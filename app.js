@@ -65,8 +65,8 @@ const NEWS_SOURCE_DOMAINS = {
 };
 
 function isDomainSelected(urlText) {
-  if (!urlText) return false;
-  if (!state.sources || state.sources.length === 0) {
+  if (!urlText || typeof urlText !== 'string') return false;
+  if (!Array.isArray(state.sources) || state.sources.length === 0) {
     return true; // 아무것도 선택하지 않은 경우 전체 허용
   }
   try {
@@ -86,7 +86,7 @@ function isDomainSelected(urlText) {
 }
 
 function getQuerySourceFilter() {
-  if (!state.sources || state.sources.length === 0 || state.sources.length > 10) {
+  if (!Array.isArray(state.sources) || state.sources.length === 0 || state.sources.length > 10) {
     // 10개 초과 선택 시 구글 검색 32단어 글자수 한도 초과로 인한 검색 쿼리 손상 방지를 위해 쿼리 연산자는 생략하고 클라이언트 도메인 필터링에 의존
     return '';
   }
@@ -433,15 +433,23 @@ function initStorage() {
   const categoryAll = document.getElementById('category-all');
   const savedSources = localStorage.getItem('news_sources');
   if (savedSources) {
-    state.sources = JSON.parse(savedSources);
+    try {
+      state.sources = JSON.parse(savedSources);
+    } catch (_) {
+      state.sources = Object.keys(NEWS_SOURCE_DOMAINS);
+    }
   } else {
+    state.sources = Object.keys(NEWS_SOURCE_DOMAINS);
+  }
+
+  if (!Array.isArray(state.sources)) {
     state.sources = Object.keys(NEWS_SOURCE_DOMAINS);
   }
 
   // 검색 뉴스 출처 바인딩
   const sourceCbs = document.querySelectorAll('input[name="sources"]');
   sourceCbs.forEach(cb => {
-    cb.checked = state.sources.includes(cb.value);
+    cb.checked = Array.isArray(state.sources) && state.sources.includes(cb.value);
   });
 
   const allSourcesChecked = sourceCbs.length > 0 && Array.from(sourceCbs).every(cb => cb.checked);
@@ -2364,7 +2372,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v16')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v17')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
