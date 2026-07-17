@@ -377,7 +377,7 @@ async function fetchArticleDetailsForRss(articleUrl) {
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
+    const timer = setTimeout(() => controller.abort(), 30000);
     const resp = await fetch(`/api/article-text?url=${encodeURIComponent(url)}`, { signal: controller.signal });
     clearTimeout(timer);
     if (!resp.ok) return { title: '', text: '', finalUrl: url };
@@ -2506,7 +2506,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v35')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v36')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
