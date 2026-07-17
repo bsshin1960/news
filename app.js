@@ -119,6 +119,7 @@ let state = {
   isPlaying: false,
   isPaused: false,
   hasSpokenIntro: false,
+  hasFirstNewsBeenRequested: false,
   lastGeminiError: '',
   lastOpenaiError: '',
   lastRssError: ''
@@ -1578,7 +1579,11 @@ async function fetchRemainingNewsByPlan(apiKey, categoryCounts, prompt, targetTo
     while (sessionId === currentFetchSession && state.newsList.length < targetTotal && shuffledQueue.length > 0) {
       const category = shuffledQueue.shift();
       try {
-        const items = await fetchNewsItemsForCategory(category, 1, { prompt, fastFirst: state.newsList.length === 0 });
+        const isFirstRequest = state.newsList.length === 0 && !state.hasFirstNewsBeenRequested;
+        if (isFirstRequest) {
+          state.hasFirstNewsBeenRequested = true;
+        }
+        const items = await fetchNewsItemsForCategory(category, 1, { prompt, fastFirst: isFirstRequest });
         if (sessionId !== currentFetchSession) return;
 
         const appended = appendFetchedNewsItems(items, targetTotal);
@@ -1624,6 +1629,7 @@ async function fetchNews() {
 
   state.newsList = [];
   state.currentNewsIndex = -1;
+  state.hasFirstNewsBeenRequested = false;
   state.lastGeminiError = '';
   state.lastOpenaiError = '';
   state.lastRssError = '';
@@ -2398,7 +2404,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v27')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v28')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
