@@ -57,7 +57,7 @@ const NEWS_SOURCE_DOMAINS = {
 };
 
 function getQuerySourceFilter() {
-  if (!state.sources || state.sources.length === 0 || state.sources.length === Object.keys(NEWS_SOURCE_DOMAINS).length) {
+  if (!state.sources || state.sources.length === 0) {
     return '';
   }
   const domains = state.sources.map(src => NEWS_SOURCE_DOMAINS[src]).filter(Boolean);
@@ -2321,7 +2321,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260714_v12')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v14')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
