@@ -2004,6 +2004,9 @@ function cleanNewsBodyText(body, category, sourceName = '') {
   // 기자 이름 및 "기자" 단어 제거 (예: 김민지 기자, 홍길동 기자 =, 취재기자 등)
   cleaned = cleaned.replace(/[가-힣]{2,4}\s*기자(?:\s*=)?\s*/g, ' ');
 
+  // "=" 특수 문자 제거 (예: = -> 삭제)
+  cleaned = cleaned.replace(/=/g, ' ');
+
   // "&" 문자를 앞 단어의 받침 여부에 따라 "와" 또는 "과"로 대체
   cleaned = replaceAmpersand(cleaned);
 
@@ -2386,7 +2389,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v20')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v21')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
