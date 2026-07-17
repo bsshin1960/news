@@ -339,8 +339,8 @@ function initStorage() {
     state.newsDetailChars = normalizeNewsDetailChars(savedDetailChars);
   }
 
-  // 모바일 환경 강제 마이그레이션: 기존 1.4배속 설정이 있거나 기본값이 없을 시 1.0배속으로 자동 교정
-  if (isMobileRuntime() && (state.speed === 1.4 || !savedSpeed)) {
+  // 강제 마이그레이션: 기존 1.4배속 설정이 있거나 기본값이 없을 시 1.0배속으로 자동 교정
+  if (state.speed === 1.4 || !savedSpeed) {
     state.speed = 1.0;
     localStorage.setItem('news_speed', '1.0');
   }
