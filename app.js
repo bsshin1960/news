@@ -23,9 +23,9 @@ const RSS_ARTICLE_TEXT_ATTEMPT_LIMIT = 3;
 const NEWS_SEEN_STORAGE_KEY = 'news_seen_items_v1';
 const NEWS_SEEN_LIMIT = 200;
 const NEWS_SEEN_TTL_MS = NEWS_RECENCY_HOURS * 60 * 60 * 1000;
-const DEFAULT_NEWS_DETAIL_CHARS = 900;
-const MIN_NEWS_DETAIL_CHARS = 900;
-const MAX_NEWS_DETAIL_CHARS = 2000;
+const DEFAULT_NEWS_DETAIL_CHARS = 500;
+const MIN_NEWS_DETAIL_CHARS = 250;
+const MAX_NEWS_DETAIL_CHARS = 1000;
 let nextGeminiRequestAt = 0;
 let geminiRequestQueue = Promise.resolve();
 
@@ -2028,6 +2028,9 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
     state.hasSpokenIntro = true;
   }
 
+  // 3개 초과 인덱스 기사들은 제목만 낭독 (0, 1, 2인덱스만 본문 포함 낭독)
+  const isHeadlineOnly = index >= 3;
+
   // 직전 카드와 동일 카테고리 여부 검사
   const isSameCategory = index > 0 && state.newsList[index - 1].category === news.category;
 
@@ -2036,15 +2039,22 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
   const processedBody = cleanNewsBodyText(news.body, news.category, news.source_name);
   const shouldReadBody = processedBody && normalizeNewsCompareText(processedBody) !== normalizeNewsCompareText(processedTitle);
 
-  // 1. 카테고리가 최초로 시작할 때만 카테고리 정보 안내
+  // 1. 카테고리가 최초로 시작할 때만 카테고리 정보 안내 (인덱스 3에서 간추린 소식 멘트 추가)
   if (!isSameCategory) {
-    speakText += `${news.category} 소식입니다. `;
+    if (index === 3) {
+      speakText += `이어서 간추린 소식들을 전해드립니다. ${news.category} 소식입니다. `;
+    } else {
+      speakText += `${news.category} 소식입니다. `;
+    }
+  } else if (index === 3) {
+    speakText += `이어서 간추린 소식들을 전해드립니다. `;
   }
 
-  // 2. [두번째 이미지 요구사항 반영]: 제목(news.title) 읽기는 완전히 생략
-  // 3. 가공된 본문만 자연스럽게 추가하여 낭독
+  // 2. 제목 추가
   speakText += processedTitle;
-  if (shouldReadBody) {
+
+  // 3. 본문 추가 (헤드라인이 아니고 본문 읽기 대상인 경우만 추가)
+  if (!isHeadlineOnly && shouldReadBody) {
     speakText += ` ${processedBody}`;
   }
 
