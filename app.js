@@ -2203,34 +2203,41 @@ function continueWhenNextNewsArrives(index) {
 
   // 더 이상 재생할 뉴스가 없을 때
   if (state.briefingPhase === 'headlines') {
-    state.briefingPhase = 'details';
-    state.hasSpokenIntro = false;
+    updatePlayerStatus('상세 브리핑 준비 중', '잠시 후 각 뉴스의 상세 내용을 전해드립니다...');
     
-    // 과도기 인트로 낭독
-    const transitionUtterance = new SpeechSynthesisUtterance("이어서 각 뉴스의 상세 내용을 전해드립니다.");
-    const selectedVoice = voices.find(v => v.name === state.voiceName);
-    if (selectedVoice) {
-      transitionUtterance.voice = selectedVoice;
-    }
-    transitionUtterance.rate = state.speed;
-    transitionUtterance.pitch = 1.0;
-    
-    transitionUtterance.onend = () => {
-      setTimeout(() => {
+    // 헤드라인 종료 후 본문 상세 브리핑 시작 전 3초 대기 (20초 이하 규정)
+    setTimeout(() => {
+      if (!state.isPlaying || state.isPaused) return;
+
+      state.briefingPhase = 'details';
+      state.hasSpokenIntro = false;
+      
+      // 과도기 인트로 낭독
+      const transitionUtterance = new SpeechSynthesisUtterance("이어서 각 뉴스의 상세 내용을 전해드립니다.");
+      const selectedVoice = voices.find(v => v.name === state.voiceName);
+      if (selectedVoice) {
+        transitionUtterance.voice = selectedVoice;
+      }
+      transitionUtterance.rate = state.speed;
+      transitionUtterance.pitch = 1.0;
+      
+      transitionUtterance.onend = () => {
+        setTimeout(() => {
+          if (state.isPlaying && !state.isPaused) {
+            playNewsAtIndex(0);
+          }
+        }, 100);
+      };
+      
+      transitionUtterance.onerror = () => {
         if (state.isPlaying && !state.isPaused) {
           playNewsAtIndex(0);
         }
-      }, 100);
-    };
-    
-    transitionUtterance.onerror = () => {
-      if (state.isPlaying && !state.isPaused) {
-        playNewsAtIndex(0);
-      }
-    };
-    
-    currentUtterance = transitionUtterance;
-    synth.speak(transitionUtterance);
+      };
+      
+      currentUtterance = transitionUtterance;
+      synth.speak(transitionUtterance);
+    }, 3000);
   } else {
     stopSpeech();
     updatePlayerStatus('낭독이 모두 끝났습니다', '오늘도 활기찬 아침 보내세요!');
@@ -2453,7 +2460,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v32')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v33')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
