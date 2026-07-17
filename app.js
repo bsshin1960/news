@@ -2259,7 +2259,7 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
     const month = today.getMonth() + 1;
     const date = today.getDate();
     if (state.briefingPhase === 'headlines') {
-      speakText += `${month}월 ${date}일 오늘 주요 뉴스 헤드라인을 먼저 알려드립니다. `;
+      speakText += `${month}월 ${date}일 헤드라인뉴스입니다. `;
     } else {
       speakText += `${month}월 ${date}일 오늘 뉴스 상세 브리핑을 시작하겠습니다. `;
     }
@@ -2453,7 +2453,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v31')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v32')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
