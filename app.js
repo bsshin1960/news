@@ -283,7 +283,7 @@ function isUsefulExtractedArticleBody(extractedBody, rssBody) {
 
 async function fetchArticleDetailsForRss(articleUrl) {
   const url = String(articleUrl || '').trim();
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname);
   if (!url || !isLocal) return { title: '', text: '', finalUrl: url };
 
   try {
@@ -828,7 +828,7 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
 // 외부 환경의 경우 공개 CORS 프록시를 거쳐 최신 뉴스를 가져옵니다.
 // ====================================================
 async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname);
   const query = encodeURIComponent(`${category} 최신 뉴스 when:12h`);
   const targetPath = `/rss/search?q=${query}&hl=ko&gl=KR&ceid=KR:ko`;
 
@@ -1329,7 +1329,8 @@ async function fetchOpenAINewsForCategory(apiKey, category, prompt, count = 1) {
   const detailChars = getNewsDetailTargetChars();
   const detailCharRange = getNewsDetailCharRangeText();
   const detailSentenceRange = getNewsDetailSentenceRange();
-  const targetUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname);
+  const targetUrl = isLocal
     ? '/api/openai/v1/responses'
     : 'https://api.openai.com/v1/responses';
 
