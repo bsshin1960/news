@@ -591,10 +591,9 @@ body.dark-theme .category-group-title.산업 { background: rgba(2, 132, 199, 0.2
   margin-bottom: 10px;
   line-height: 1.4;
   color: var(--text-primary);
-  /* 한줄 말줄임 처리 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .card-body {
@@ -603,6 +602,29 @@ body.dark-theme .category-group-title.산업 { background: rgba(2, 132, 199, 0.2
   color: var(--text-muted);
   margin-bottom: 20px;
   flex: 1;
+}
+.card-source {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.news-source-link {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.news-source-link:hover {
+  color: var(--secondary);
+}
+
+.news-source-text {
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 /* 카드 헤더 우측 영역 (시간 + 듣기 버튼) */
@@ -1349,6 +1371,32 @@ input[type="range"]::-webkit-slider-thumb:hover {
     color: #444 !important;
     line-height: 1.7;
   }
+}
+.card-source {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.news-source-link {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.news-source-link:hover {
+  color: var(--secondary);
+}
+
+.news-source-text {
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* ----------------------------------------------------

@@ -274,7 +274,23 @@
             </div>
           </div>
 
-          <!-- 복구된 API Key 및 요구사항 입력 영역 -->
+          <!-- 복구된 API Key 및 요구사항 입력 영역 -->          <div class="form-group">
+            <label class="form-label" for="news-source-mode">뉴스 수집 방식</label>
+            <select id="news-source-mode" class="form-control">
+              <option value="auto">자동 선택 (OpenAI → Gemini → RSS)</option>
+              <option value="openai">OpenAI API 우선</option>
+              <option value="gemini">Gemini API 우선</option>
+              <option value="rss">API 없이 Google News RSS만 사용</option>
+            </select>
+            <span class="form-help">API가 실패하거나 비어 있으면 최신 뉴스 RSS로 자동 보완합니다.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="openai-api-key-input">OpenAI API Key</label>
+            <input type="password" id="openai-api-key-input" placeholder="OpenAI API 키를 입력하세요 (선택 사항)">
+            <span class="form-help">OpenAI API를 사용할 때만 필요합니다. 로컬 브라우저 저장소에 저장됩니다.</span>
+          </div>
+
           <div class="form-group">
             <label class="form-label" for="api-key-input">Gemini API Key</label>
             <input type="password" id="api-key-input" placeholder="Gemini API 키를 입력하세요 (비어있으면 실시간 RSS 뉴스 제공)">
@@ -284,6 +300,11 @@
           <div class="form-group">
             <label class="form-label" for="prompt-input">추가 요구사항 (프롬프트)</label>
             <textarea id="prompt-input" rows="3" placeholder="예: 바쁜 아침에 핵심만 쉽게 요약해줘."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="detail-chars-input">항목별 발표 분량</label>
+            <input type="number" id="detail-chars-input" class="form-control" min="900" max="2000" step="50" value="900" placeholder="예: 900">
+            <span class="form-help">각 뉴스 항목을 몇 글자 정도로 작성하고 들려줄지 설정합니다. 권장 범위는 250~2000자입니다.</span>
           </div>
 
           <div class="divider"></div>

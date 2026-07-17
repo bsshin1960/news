@@ -1,4 +1,4 @@
-const CACHE_NAME = 'news-tts-v12';
+const CACHE_NAME = 'news-tts-v13';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -50,7 +50,11 @@ self.addEventListener('activate', (event) => {
 // 네트워크 요청 인터셉트 및 캐시 반환 (Network-First 전략)
 self.addEventListener('fetch', (event) => {
   // TTS API나 외부 통신 등 POST 요청이나 특정 스키마는 캐싱 제외
-  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
+  // 로컬 개발 서버 환경(localhost, 127.0.0.1)에서는 캐싱 문제 예방을 위해 인터셉트하지 않습니다.
+  if (event.request.method !== 'GET' ||
+      !event.request.url.startsWith(self.location.origin) ||
+      self.location.hostname === 'localhost' ||
+      self.location.hostname === '127.0.0.1') {
     return;
   }
 
