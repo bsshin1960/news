@@ -1045,7 +1045,7 @@ const result = [];
 
         const cleanDesc = description.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim();
         let articleBodyText = cleanDesc;
-        if (!options.fastFirst && articleBodyText.length < RSS_MIN_BODY_CHARS && articleTextAttempts < RSS_ARTICLE_TEXT_ATTEMPT_LIMIT) {
+        if (articleBodyText.length < RSS_MIN_BODY_CHARS && articleTextAttempts < RSS_ARTICLE_TEXT_ATTEMPT_LIMIT) {
           articleTextAttempts += 1;
           const articleDetails = await fetchArticleDetailsForRss(link.trim());
           if (isUsefulExtractedArticleTitle(articleDetails.title, title, sourceName)) {
@@ -1579,11 +1579,7 @@ async function fetchRemainingNewsByPlan(apiKey, categoryCounts, prompt, targetTo
     while (sessionId === currentFetchSession && state.newsList.length < targetTotal && shuffledQueue.length > 0) {
       const category = shuffledQueue.shift();
       try {
-        const isFirstRequest = state.newsList.length === 0 && !state.hasFirstNewsBeenRequested;
-        if (isFirstRequest) {
-          state.hasFirstNewsBeenRequested = true;
-        }
-        const items = await fetchNewsItemsForCategory(category, 1, { prompt, fastFirst: isFirstRequest });
+        const items = await fetchNewsItemsForCategory(category, 1, { prompt, fastFirst: false });
         if (sessionId !== currentFetchSession) return;
 
         const appended = appendFetchedNewsItems(items, targetTotal);
@@ -1682,26 +1678,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
   const detailCharRange = getNewsDetailCharRangeText();
   const detailSentenceRange = getNewsDetailSentenceRange();
 
-  const promptText = options.fastFirst ? `
-    역할: 빠른 오늘의 뉴스 앵커
-
-    시간 및 구글 검색 중요 지침 (가장 중요):
-    현재 한국 표준시(KST) 시각은 [ ${currentLocalTimeStr} ], 오늘은 [ ${kstInfo.label} ] 입니다.
-    1. **반드시 google_search 도구를 사용하여 오늘 날짜인 [ ${kstInfo.label} ]에 실제로 발행 및 보도된 실시간 기사 1건만 즉시 찾아내십시오.**
-    2. 검색할 때 \`[ ${category} ${kstInfo.label} 최신 뉴스 ]\` 또는 \`[ ${kstInfo.label} 오늘 ${category} ]\` 와 같이 정확한 연도와 오늘 날짜를 구글 검색 쿼리에 명시하여 12시간 이내의 진짜 최신 실시간 뉴스만을 검색하도록 강제하십시오.${siteConstraint}
-    3. 과거 학습 데이터나 12시간이 지난 옛날 기사는 절대 요약하지 마십시오.
-    4. source_url은 검색 결과의 실제 상세 기사 URL이어야 합니다.
-
-    사용자의 추가 요구사항: "${prompt || '바쁜 아침에 핵심만 쉽게 요약해줘.'}"
-
-    요구사항 반영 및 글자 수 증대 지침:
-    1. 사용자의 추가 요구사항 지침에 맞추어 뉴스를 요약하되, 본문("body")은 아나운서가 부드럽고 친근하게 읽을 수 있는 자연스러운 한국어 줄글 ${detailSentenceRange}문장으로 설정한 분량에 맞게 상세하게(${detailCharRange}) 작성하십시오.
-    2. 핵심 팩트 외에 구체적인 수치, 발생 배경, 사회·경제적 파급 효과, 그리고 사용자가 알아야 할 후속 전망 및 대처법까지 대폭 상세화하여 2배 늘어난 풍부한 정보를 담아야 합니다.
-    3. 제목("title")은 15자 이내의 짧은 한줄 헤드라인으로 쓰세요.
-
-    출력은 설명 없이 아래 스키마의 JSON 배열만 허용합니다:
-    [{"id":1,"category":"${category}","title":"15자 이내 제목","body":"사용자의 요구사항에 맞춘 ${detailSentenceRange}문장의 ${detailChars}자 분량 상세 본문","time":"${currentMonth}.${currentDate} 오전 08:00","source_name":"언론사명","source_url":"실제 상세 기사 URL"}]
-  ` : `
+  const promptText = `
     역할: 전문 오늘의 뉴스 앵커 및 아나운서
 
     시간 및 검색 규정 (가장 엄격히 준수):
@@ -1743,7 +1720,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
   `;
 
   // 빠른 로드를 위해 매 카테고리마다 모델 목록 API를 조회하지 않고 검색 지원 Flash 모델을 바로 시도한다.
-  const discoveredModels = options.fastFirst ? FIRST_NEWS_MODEL_CANDIDATES : FAST_NEWS_MODEL_CANDIDATES;
+  const discoveredModels = FAST_NEWS_MODEL_CANDIDATES;
   console.log(`⚡ [${category}] 빠른 검색 모델 ${discoveredModels.length}개 시도:`, discoveredModels.map(m => `${m.version}/${m.name}`).join(', '));
   // ===== 2단계: 탐색된 모델로 순차적 뉴스 생성 시도 =====
   let lastError = '사용 가능한 Gemini 모델을 찾지 못했습니다.';
@@ -2404,7 +2381,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v28')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v29')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
