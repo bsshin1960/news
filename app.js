@@ -120,6 +120,7 @@ let state = {
   isPaused: false,
   hasSpokenIntro: false,
   hasFirstNewsBeenRequested: false,
+  briefingPhase: 'headlines',
   lastGeminiError: '',
   lastOpenaiError: '',
   lastRssError: ''
@@ -1626,6 +1627,7 @@ async function fetchNews() {
   state.newsList = [];
   state.currentNewsIndex = -1;
   state.hasFirstNewsBeenRequested = false;
+  state.briefingPhase = 'headlines';
   state.lastGeminiError = '';
   state.lastOpenaiError = '';
   state.lastRssError = '';
@@ -2103,7 +2105,7 @@ function appendNewsCard(news, index) {
   const displayBody = cleanNewsBodyText(news.body, news.category, news.source_name);
   const shouldShowBody = displayBody && normalizeNewsCompareText(displayBody) !== normalizeNewsCompareText(displayTitle);
   const bodyHtml = shouldShowBody
-    ? `<p class="card-body">${escapeHtml(displayBody)}</p>`
+    ? `<p class="card-body" id="card-body-${index}" style="display: none; margin-top: 12px; font-size: 14px; line-height: 1.6; color: var(--text-muted); opacity: 0; transition: opacity 0.5s ease;">${escapeHtml(displayBody)}</p>`
     : '';
 
   const card = document.createElement('article');
@@ -2132,6 +2134,7 @@ function appendNewsCard(news, index) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const idx = parseInt(btn.getAttribute('data-index'));
+      state.briefingPhase = 'details';
       playNewsAtIndex(idx);
     });
   }
@@ -2178,6 +2181,8 @@ function togglePlayPause() {
     }
   } else {
     // 처음부터 재생 시작 (인트로 활성화)
+    state.briefingPhase = 'headlines';
+    state.hasSpokenIntro = false;
     playNewsAtIndex(0, true);
   }
 }
@@ -2196,8 +2201,40 @@ function continueWhenNextNewsArrives(index) {
     return;
   }
 
-  stopSpeech();
-  updatePlayerStatus('낭독이 모두 끝났습니다', '오늘도 활기찬 아침 보내세요!');
+  // 더 이상 재생할 뉴스가 없을 때
+  if (state.briefingPhase === 'headlines') {
+    state.briefingPhase = 'details';
+    state.hasSpokenIntro = false;
+    
+    // 과도기 인트로 낭독
+    const transitionUtterance = new SpeechSynthesisUtterance("이어서 각 뉴스의 상세 내용을 전해드립니다.");
+    const selectedVoice = voices.find(v => v.name === state.voiceName);
+    if (selectedVoice) {
+      transitionUtterance.voice = selectedVoice;
+    }
+    transitionUtterance.rate = state.speed;
+    transitionUtterance.pitch = 1.0;
+    
+    transitionUtterance.onend = () => {
+      setTimeout(() => {
+        if (state.isPlaying && !state.isPaused) {
+          playNewsAtIndex(0);
+        }
+      }, 100);
+    };
+    
+    transitionUtterance.onerror = () => {
+      if (state.isPlaying && !state.isPaused) {
+        playNewsAtIndex(0);
+      }
+    };
+    
+    currentUtterance = transitionUtterance;
+    synth.speak(transitionUtterance);
+  } else {
+    stopSpeech();
+    updatePlayerStatus('낭독이 모두 끝났습니다', '오늘도 활기찬 아침 보내세요!');
+  }
 }
 // 특정 뉴스 낭독 시작
 function playNewsAtIndex(index, isPlaylistStart = false) {
@@ -2221,7 +2258,11 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
     const today = new Date();
     const month = today.getMonth() + 1;
     const date = today.getDate();
-    speakText += `${month}월 ${date}일 오늘 주요 뉴스를 알려드립니다. `;
+    if (state.briefingPhase === 'headlines') {
+      speakText += `${month}월 ${date}일 오늘 주요 뉴스 헤드라인을 먼저 알려드립니다. `;
+    } else {
+      speakText += `${month}월 ${date}일 오늘 뉴스 상세 브리핑을 시작하겠습니다. `;
+    }
     state.hasSpokenIntro = true;
   }
 
@@ -2238,11 +2279,21 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
     speakText += `${news.category} 소식입니다. `;
   }
 
-  // 2. 제목/본문 추가 (본문이 있으면 제목 생략, 없으면 제목 낭독)
-  if (shouldReadBody) {
-    speakText += processedBody;
-  } else {
+  // 2. 제목/본문 추가 (헤드라인 페이즈는 제목만, 상세 페이즈는 본문만 낭독)
+  if (state.briefingPhase === 'headlines') {
     speakText += processedTitle;
+  } else {
+    const bodyEl = document.getElementById(`card-body-${index}`);
+    if (bodyEl) {
+      bodyEl.style.display = 'block';
+      bodyEl.offsetHeight; // Reflow
+      bodyEl.style.opacity = '1';
+    }
+    if (shouldReadBody) {
+      speakText += processedBody;
+    } else {
+      speakText += processedTitle;
+    }
   }
 
   currentUtterance = new SpeechSynthesisUtterance(speakText);
@@ -2287,6 +2338,13 @@ function playNewsAtIndex(index, isPlaylistStart = false) {
 }
 
 // 낭독 정지
+function hideAllCardBodies() {
+  document.querySelectorAll('.card-body').forEach(bodyEl => {
+    bodyEl.style.opacity = '0';
+    bodyEl.style.display = 'none';
+  });
+}
+
 function stopSpeech(resetUI = true) {
   synth.cancel();
 
@@ -2294,9 +2352,11 @@ function stopSpeech(resetUI = true) {
     state.isPlaying = false;
     state.isPaused = false;
     state.currentNewsIndex = -1;
+    state.briefingPhase = 'headlines';
 
     // UI 원복
     removeHighlightFromCards();
+    hideAllCardBodies();
     updatePlayerControlsUI(false, false);
     updatePlayerStatus('낭독 중지됨', '재생 버튼을 누르면 첫 뉴스부터 재생합니다.');
     document.getElementById('player-progress').style.width = '0%';
@@ -2310,7 +2370,13 @@ function playNextNews() {
   if (nextIdx < state.newsList.length) {
     playNewsAtIndex(nextIdx);
   } else {
-    alert('마지막 뉴스입니다.');
+    if (state.briefingPhase === 'headlines') {
+      state.briefingPhase = 'details';
+      state.hasSpokenIntro = false;
+      playNewsAtIndex(0);
+    } else {
+      alert('마지막 뉴스입니다.');
+    }
   }
 }
 
@@ -2321,7 +2387,13 @@ function playPrevNews() {
   if (prevIdx >= 0) {
     playNewsAtIndex(prevIdx);
   } else {
-    alert('첫 번째 뉴스입니다.');
+    if (state.briefingPhase === 'details') {
+      state.briefingPhase = 'headlines';
+      state.hasSpokenIntro = false;
+      playNewsAtIndex(state.newsList.length - 1);
+    } else {
+      alert('첫 번째 뉴스입니다.');
+    }
   }
 }
 
@@ -2381,7 +2453,7 @@ function updatePlayerStatus(title, desc) {
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v29')
+      navigator.serviceWorker.register('./sw.js?v=20260717_v30')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
