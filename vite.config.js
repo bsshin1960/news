@@ -173,6 +173,89 @@ function extractArticleText(html = '') {
   return best;
 }
 
+function normalizeSearchText(value = '') {
+  return stripHtml(value)
+    .toLowerCase()
+    .replace(/[^0-9a-z가-힣]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function scoreSearchResult(expectedTitle, candidateTitle) {
+  const expected = normalizeSearchText(expectedTitle);
+  const candidate = normalizeSearchText(candidateTitle);
+  if (!expected || !candidate) return 0;
+  if (candidate.includes(expected)) return 1;
+  if (expected.includes(candidate) && candidate.length >= expected.length * 0.65) return 0.9;
+  const tokens = [...new Set(expected.split(' ').filter(token => token.length >= 2))];
+  if (tokens.length === 0) return 0;
+  return tokens.filter(token => candidate.includes(token)).length / tokens.length;
+}
+
+function makePublisherSearchUrl(sourceHomeUrl, title) {
+  const host = new URL(sourceHomeUrl).hostname.replace(/^www\./, '');
+  const query = encodeURIComponent(String(title || '').replace(/^\[[^\]]+\]\s*/, '').trim());
+  if (host.endsWith('yna.co.kr')) return `https://www.yna.co.kr/search/index?query=${query}&ctype=A`;
+  if (host.endsWith('sbs.co.kr')) return `https://news.sbs.co.kr/news/search/main.do?query=${query}`;
+  if (host.endsWith('chosun.com')) return `https://www.chosun.com/nsearch/?query=${query}`;
+  if (host.endsWith('joongang.co.kr')) return `https://www.joongang.co.kr/search/news?keyword=${query}`;
+  if (host.endsWith('donga.com')) return `https://www.donga.com/news/search?query=${query}`;
+  if (host.endsWith('mk.co.kr')) return `https://www.mk.co.kr/search?word=${query}`;
+  if (host.endsWith('hankyung.com')) return `https://search.hankyung.com/search/news?query=${query}`;
+  if (host.endsWith('kmib.co.kr')) return `https://www.kmib.co.kr/search.php?searchword=${query}`;
+  return `https://www.bing.com/search?format=rss&q=${encodeURIComponent(`site:${host} "${title}"`)}`;
+}
+
+const publisherSearchProxy = () => ({
+  name: 'publisher-search-proxy',
+  configureServer(server) {
+    server.middlewares.use('/api/publisher-search', async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url || '', 'http://localhost');
+        const title = requestUrl.searchParams.get('title') || '';
+        const sourceHomeUrl = requestUrl.searchParams.get('source') || '';
+        if (!title || !/^https?:\/\//i.test(sourceHomeUrl)) throw new Error('검색 제목 또는 언론사 주소가 없습니다.');
+
+        const publisherHost = new URL(sourceHomeUrl).hostname.replace(/^www\./, '');
+        const searchUrl = makePublisherSearchUrl(sourceHomeUrl, title);
+        const response = await fetch(searchUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        const payload = await response.text();
+        const candidates = [];
+
+        if (searchUrl.includes('format=rss')) {
+          for (const match of payload.matchAll(/<item>[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?<\/item>/gi)) {
+            candidates.push({ text: stripHtml(match[1]), href: stripHtml(match[2]) });
+          }
+        } else {
+          for (const match of payload.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+            candidates.push({ href: match[1].replace(/&amp;/g, '&'), text: stripHtml(match[2]) });
+          }
+        }
+
+        let best = { url: '', score: 0 };
+        for (const candidate of candidates) {
+          try {
+            const candidateUrl = new URL(candidate.href, searchUrl);
+            const host = candidateUrl.hostname.replace(/^www\./, '');
+            if (!(host === publisherHost || host.endsWith(`.${publisherHost}`) || publisherHost.endsWith(`.${host}`))) continue;
+            if (/\/search(?:\/|\?|$)/i.test(candidateUrl.pathname) || /\/index\/?$/i.test(candidateUrl.pathname)) continue;
+            const score = scoreSearchResult(title, candidate.text);
+            if (score > best.score) best = { url: candidateUrl.href, score };
+          } catch (_) {}
+        }
+
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify(best.score >= 0.45 ? best : { url: '', score: best.score }));
+      } catch (error) {
+        res.statusCode = 502;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ url: '', error: error?.message || String(error) }));
+      }
+    });
+  }
+});
 const articleTextProxy = () => ({
   name: 'article-text-proxy',
   configureServer(server) {
@@ -299,7 +382,7 @@ const settingsSyncPlugin = () => ({
 export default defineConfig({
   // 상대 경로 빌드를 지원하여 GitHub Pages 등 하위 경로 배포 시 404 방지
   base: './',
-  plugins: [articleTextProxy(), settingsSyncPlugin(), copyPwaAssets()],
+  plugins: [articleTextProxy(), publisherSearchProxy(), settingsSyncPlugin(), copyPwaAssets()],
   server: {
     proxy: {
       '/api/google-news': {

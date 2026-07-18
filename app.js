@@ -748,7 +748,123 @@ async function fetchArticleWithReaderApi(articleUrl) {
   }
 }
 
-async function fetchArticleDetailsForRss(articleUrl) {
+function buildPublisherSearchUrl(sourceHomeUrl, title) {
+  let host = '';
+  try {
+    host = new URL(sourceHomeUrl).hostname.replace(/^www\./, '');
+  } catch (_) {
+    return '';
+  }
+
+  const query = encodeURIComponent(String(title || '').replace(/^\[[^\]]+\]\s*/, '').trim());
+  if (!query) return '';
+  if (host.endsWith('yna.co.kr')) return `https://www.yna.co.kr/search/index?query=${query}&ctype=A`;
+  if (host.endsWith('sbs.co.kr')) return `https://news.sbs.co.kr/news/search/main.do?query=${query}`;
+  if (host.endsWith('chosun.com')) return `https://www.chosun.com/nsearch/?query=${query}`;
+  if (host.endsWith('joongang.co.kr')) return `https://www.joongang.co.kr/search/news?keyword=${query}`;
+  if (host.endsWith('donga.com')) return `https://www.donga.com/news/search?query=${query}`;
+  if (host.endsWith('mk.co.kr')) return `https://www.mk.co.kr/search?word=${query}`;
+  if (host.endsWith('hankyung.com')) return `https://search.hankyung.com/search/news?query=${query}`;
+  if (host.endsWith('kmib.co.kr')) return `https://www.kmib.co.kr/search.php?searchword=${query}`;
+  return `https://www.bing.com/search?format=rss&q=${encodeURIComponent(`site:${host} "${String(title || '').trim()}"`)}`;
+}
+
+function scorePublisherSearchCandidate(articleTitle, candidateText) {
+  const normalize = (value) => String(value || '')
+    .toLowerCase()
+    .replace(/&[^;]+;/g, ' ')
+    .replace(/[^0-9a-z가-힣]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const expected = normalize(articleTitle);
+  const candidate = normalize(candidateText);
+  if (!expected || !candidate) return 0;
+  if (candidate.includes(expected)) return 1;
+  if (expected.includes(candidate) && candidate.length >= expected.length * 0.65) return 0.9;
+  const tokens = [...new Set(expected.split(' ').filter(token => token.length >= 2))];
+  if (tokens.length === 0) return 0;
+  return tokens.filter(token => candidate.includes(token)).length / tokens.length;
+}
+
+async function findPublisherArticleUrl(articleTitle, sourceHomeUrl) {
+  const searchUrl = buildPublisherSearchUrl(sourceHomeUrl, articleTitle);
+  if (!searchUrl) return '';
+
+  let publisherHost = '';
+  try {
+    publisherHost = new URL(sourceHomeUrl).hostname.replace(/^www\./, '');
+  } catch (_) {
+    return '';
+  }
+
+  if (checkIsLocalEnvironment()) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(`/api/publisher-search?title=${encodeURIComponent(articleTitle)}&source=${encodeURIComponent(sourceHomeUrl)}`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (response.ok) {
+        const result = await response.json();
+        if (result?.url) return result.url;
+      }
+    } catch (error) {
+      console.info('로컬 언론사 직접 검색 실패:', error?.message || error);
+    }
+  }
+
+  const proxies = ['https://api.allorigins.win/raw?url='];
+
+  for (const proxy of proxies) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(`${proxy}${encodeURIComponent(searchUrl)}`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!response.ok) continue;
+      let payload = await response.text();
+      if (proxy.includes('allorigins') && !payload.trim().startsWith('<')) {
+        try { payload = JSON.parse(payload).contents; } catch (_) {}
+      }
+      if (!payload) continue;
+
+      const candidates = [];
+      if (searchUrl.includes('format=rss')) {
+        const xml = new DOMParser().parseFromString(payload, 'text/xml');
+        xml.querySelectorAll('item').forEach(item => {
+          candidates.push({
+            href: item.querySelector('link')?.textContent || '',
+            text: item.querySelector('title')?.textContent || ''
+          });
+        });
+      } else {
+        const doc = new DOMParser().parseFromString(payload, 'text/html');
+        doc.querySelectorAll('a[href]').forEach(anchor => {
+          candidates.push({
+            href: anchor.getAttribute('href') || '',
+            text: `${anchor.textContent || ''} ${anchor.getAttribute('title') || ''}`
+          });
+        });
+      }
+
+      let best = { url: '', score: 0 };
+      for (const candidate of candidates) {
+        try {
+          const candidateUrl = new URL(candidate.href, searchUrl);
+          const candidateHost = candidateUrl.hostname.replace(/^www\./, '');
+          if (!(candidateHost === publisherHost || candidateHost.endsWith(`.${publisherHost}`) || publisherHost.endsWith(`.${candidateHost}`))) continue;
+          if (/\/search(?:\/|\?|$)/i.test(candidateUrl.pathname) || /\/index\/?$/i.test(candidateUrl.pathname)) continue;
+          const score = scorePublisherSearchCandidate(articleTitle, candidate.text);
+          if (score > best.score) best = { url: candidateUrl.href, score };
+        } catch (_) {}
+      }
+      if (best.url && best.score >= 0.45) return best.url;
+    } catch (error) {
+      console.info('언론사 직접 검색 실패:', error?.message || error);
+    }
+  }
+  return '';
+}
+async function fetchArticleDetailsForRss(articleUrl, meta = {}) {
   const url = String(articleUrl || '').trim();
   if (!url) return { title: '', text: '', finalUrl: url };
 
@@ -774,14 +890,41 @@ async function fetchArticleDetailsForRss(articleUrl) {
           if (clientText && clientText.length > text.length) text = clientText;
         }
 
-        return { title, text, finalUrl };
+        if (text.length >= RSS_MIN_BODY_CHARS && !isGoogleNewsUrl(finalUrl)) {
+          return { title, text, finalUrl };
+        }
+        console.info('Google 안내문 또는 짧은 본문을 제외하고 언론사 직접 검색을 시도합니다:', meta.title || title);
       }
     } catch (err) {
       console.info('로컬 RSS 원문 본문 추출 실패, CORS 프록시로 대체 시도:', err?.message || err);
     }
   }
 
-  const resolvedUrl = await resolveGoogleNewsUrlClient(url);
+  const searchedPublisherUrl = await findPublisherArticleUrl(meta.title || '', meta.sourceHomeUrl || '');
+  const resolvedUrl = searchedPublisherUrl
+    ? searchedPublisherUrl
+    : (isLocal ? url : await resolveGoogleNewsUrlClient(url));
+  const detailTargetUrl = searchedPublisherUrl || resolvedUrl;
+
+  if (isLocal && searchedPublisherUrl) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20000);
+      const response = await fetch(`/api/article-text?url=${encodeURIComponent(searchedPublisherUrl)}`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (response.ok) {
+        const data = await response.json();
+        const title = String(data.title || '').replace(/\s+/g, ' ').trim();
+        const articleText = String(data.text || '').replace(/\s+/g, ' ').trim();
+        const finalUrl = String(data.finalUrl || searchedPublisherUrl).trim();
+        if (articleText.length >= RSS_MIN_BODY_CHARS && !isGoogleNewsUrl(finalUrl)) {
+          return { title, text: articleText, finalUrl };
+        }
+      }
+    } catch (error) {
+      console.info('검색된 언론사 기사 본문 추출 실패:', error?.message || error);
+    }
+  }
 
   const corsProxies = [
     'https://api.allorigins.win/raw?url=',
@@ -791,7 +934,7 @@ async function fetchArticleDetailsForRss(articleUrl) {
 
   for (const proxy of corsProxies) {
     try {
-      const fetchUrl = `${proxy}${encodeURIComponent(resolvedUrl)}`;
+      const fetchUrl = `${proxy}${encodeURIComponent(detailTargetUrl)}`;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000);
       const response = await fetch(fetchUrl, { signal: controller.signal });
@@ -818,15 +961,15 @@ async function fetchArticleDetailsForRss(articleUrl) {
         return {
           title: title,
           text: text,
-          finalUrl: resolvedUrl
+          finalUrl: detailTargetUrl
         };
       }
     } catch (err) {
-      console.warn(`CORS proxy [${proxy}] fetch failed for detail url [${resolvedUrl}]:`, err?.message || err);
+      console.warn(`CORS proxy [${proxy}] fetch failed for detail url [${detailTargetUrl}]:`, err?.message || err);
     }
   }
 
-  return { title: '', text: '', finalUrl: resolvedUrl };
+  return { title: '', text: '', finalUrl: detailTargetUrl };
 }
 function initStorage() {
   const savedCategories = localStorage.getItem('news_categories');
@@ -1723,7 +1866,10 @@ const result = [];
         let articleBodyText = cleanDesc;
         if (articleBodyText.length < RSS_MIN_BODY_CHARS && articleTextAttempts < RSS_ARTICLE_TEXT_ATTEMPT_LIMIT) {
           articleTextAttempts += 1;
-          const articleDetails = await fetchArticleDetailsForRss(link.trim());
+          const articleDetails = await fetchArticleDetailsForRss(link.trim(), {
+            title,
+            sourceHomeUrl: sourceUrlAttr
+          });
           if (isUsefulExtractedArticleTitle(articleDetails.title, title, sourceName)) {
             title = articleDetails.title;
           }
@@ -3501,7 +3647,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v65')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v66')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
