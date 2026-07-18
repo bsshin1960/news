@@ -2232,6 +2232,43 @@ async function fetchOpenAINewsForCategory(apiKey, category, prompt, count = 1) {
 
   return selectRandomUnseenNewsItems(normalizedItems, count);
 }
+async function fetchFirstNewsFast(categories, prompt, targetTotal, sessionId) {
+  if (sessionId !== currentFetchSession || state.newsList.length > 0) return;
+  const hasOpenAI = Boolean((state.openaiApiKey || '').trim());
+  const hasGemini = Boolean((state.apiKey || '').trim());
+  if (!hasOpenAI && !hasGemini) return;
+
+  const category = categories[0];
+  if (!category) return;
+  state.hasFirstNewsBeenRequested = true;
+
+  let timer;
+  try {
+    const request = state.newsSourceMode === 'openai' && hasOpenAI
+      ? fetchOpenAINewsForCategory(state.openaiApiKey, category, prompt, 1)
+      : state.newsSourceMode === 'gemini' && hasGemini
+        ? fetchGeminiNewsForCategory(state.apiKey, category, prompt, 1, { fastFirst: true })
+        : hasOpenAI
+          ? fetchOpenAINewsForCategory(state.openaiApiKey, category, prompt, 1)
+          : fetchGeminiNewsForCategory(state.apiKey, category, prompt, 1, { fastFirst: true });
+
+    const timeout = new Promise(resolve => {
+      timer = setTimeout(() => resolve([]), 9000);
+    });
+    const items = await Promise.race([request, timeout]);
+    if (sessionId !== currentFetchSession || !Array.isArray(items) || items.length === 0) return;
+
+    const appended = appendFetchedNewsItems(items, targetTotal);
+    if (appended > 0) {
+      updatePlayerStatus('첫 뉴스 준비 완료', '나머지 최신 뉴스는 백그라운드에서 계속 수집하고 있습니다.');
+    }
+  } catch (error) {
+    console.info('10초 이내 첫 뉴스 우선 요청 실패, 백그라운드 수집을 계속합니다:', error?.message || error);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchRemainingNewsByPlan(apiKey, categoryCounts, prompt, targetTotal, sessionId, attempt = 0) {
   if (sessionId !== currentFetchSession || state.newsList.length >= targetTotal) return;
 
@@ -2344,6 +2381,9 @@ async function fetchNews() {
     categoryCounts[cat]++;
   }
   updatePlayerStatus('실시간 뉴스 수집 중', `${getNewsSourceLabel(getPreferredNewsSources()[0])}로 선택한 카테고리의 최신 뉴스를 동시에 검색하는 중입니다...`);
+  // Start a direct API request in parallel so the first card can appear within 10 seconds.
+  void fetchFirstNewsFast(selectedCategories, state.prompt, requestedTotal, thisSession);
+
   fetchRemainingNewsByPlan(state.apiKey, categoryCounts, state.prompt, requestedTotal, thisSession)
     .catch(err => {
       if (thisSession !== currentFetchSession) return;
@@ -2410,7 +2450,7 @@ async function fetchGeminiNewsForCategory(apiKey, category, prompt, count = 1, o
   `;
 
   // 빠른 로드를 위해 매 카테고리마다 모델 목록 API를 조회하지 않고 검색 지원 Flash 모델을 바로 시도한다.
-  const discoveredModels = FAST_NEWS_MODEL_CANDIDATES;
+  const discoveredModels = options.fastFirst ? FIRST_NEWS_MODEL_CANDIDATES : FAST_NEWS_MODEL_CANDIDATES;
   console.log(`⚡ [${category}] 빠른 검색 모델 ${discoveredModels.length}개 시도:`, discoveredModels.map(m => `${m.version}/${m.name}`).join(', '));
   // ===== 2단계: 탐색된 모델로 순차적 뉴스 생성 시도 =====
   let lastError = '사용 가능한 Gemini 모델을 찾지 못했습니다.';
@@ -3291,7 +3331,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v51')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v52')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
