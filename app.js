@@ -1555,12 +1555,12 @@ async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
   if (text.length < RSS_MIN_BODY_CHARS) return { body: '', provider: '' };
 
   const prompt = [
-    '다음 뉴스 기사 전체 원문을 격식 있는 한국어 문어체로 요약하세요.',
+    '다음 뉴스 기사 전체 원문을 뉴스 아나운서가 낭독하는 격식 있는 한국어 존댓말로 요약하세요.',
     '전체 분량은 290~320자로 하고, 반드시 정확히 4줄로 작성하세요.',
     '각 줄은 완결된 단문 또는 중문 한 문장으로 작성하고 줄바꿈으로만 구분하세요.',
     '한 문장은 45~80자 안에서 작성하고, 한 문장에는 하나의 핵심 정보만 담으세요.',
     '쉼표와 접속어를 반복해 여러 사실을 장문으로 이어 붙이지 마세요.',
-    '구어체와 존댓말을 쓰지 말고 뉴스 기사체인 ~이다, ~했다, ~할 전망이다 형식을 사용하세요.',
+    '친근한 대화체는 쓰지 말고 방송 뉴스체인 ~입니다, ~했습니다, ~할 전망입니다 형식을 사용하세요.',
     '네 줄에 핵심 사실, 배경과 주요 수치, 영향, 향후 전망을 각각 압축해 담으세요.',
     '기사에 없는 사실을 추가하지 말고 제목 반복, 번호, 글머리표, 출처 안내, 부연 설명을 쓰지 마세요.',
     `제목: ${meta.title || ''}`,
@@ -1581,7 +1581,7 @@ async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
           messages: [
             {
               role: 'system',
-              content: '모든 답변을 한국어로만 작성한다. 영어 설명이나 분석·사고 과정은 출력하지 않는다. 최종 뉴스 요약 4줄만 출력한다.'
+              content: '모든 답변을 한국어로만 작성한다. 뉴스 아나운서가 낭독하는 격식 있는 존댓말을 사용한다. 영어 설명이나 분석·사고 과정은 출력하지 않는다. 최종 뉴스 요약 4줄만 출력한다.'
             },
             { role: 'user', content: prompt }
           ],
@@ -3469,7 +3469,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v59')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v60')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
