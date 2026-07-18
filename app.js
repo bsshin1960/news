@@ -315,7 +315,10 @@ function trimNewsBodyToMaxChars(body) {
 }
 
 function ensureNewsBodyLength(body, meta = {}) {
-  let base = String(body || '').replace(/\s+/g, ' ').trim();
+  let base = String(body || '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\r?\n */g, '\n')
+    .trim();
   const title = String(meta.title || '').trim();
 
   if (!base && title) {
@@ -1472,15 +1475,39 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
 // 로컬 환경의 경우 Vite 프록시를 사용하여 CORS 문제 없이 수집하며,
 // 외부 환경의 경우 공개 CORS 프록시를 거쳐 최신 뉴스를 가져옵니다.
 // ====================================================
+function formatFourLineWrittenSummary(value, meta = {}) {
+  const raw = String(value || '')
+    .replace(/```(?:text)?/gi, '')
+    .replace(/^\s*(?:[-*•]|\d+[.)])\s*/gm, '')
+    .trim();
+
+  let lines = raw.split(/\r?\n/)
+    .map(line => cleanNewsBodyText(line, meta.category, meta.source_name))
+    .filter(Boolean);
+
+  if (lines.length < 4) {
+    const flat = cleanNewsBodyText(raw, meta.category, meta.source_name);
+    lines = flat.split(/(?<=[.!?])\s+/).map(line => line.trim()).filter(Boolean);
+  }
+
+  if (lines.length < 4) return '';
+  if (lines.length > 4) {
+    lines = [...lines.slice(0, 3), lines.slice(3).join(' ')];
+  }
+  return lines.join('\n');
+}
+
 async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
   const text = String(articleText || '').replace(/\s+/g, ' ').trim();
   if (text.length < RSS_MIN_BODY_CHARS) return { body: '', provider: '' };
 
   const prompt = [
-    '다음 뉴스 기사 전체 본문을 한국어 뉴스 본문으로 요약하세요.',
-    '반드시 290~320자 사이의 자연스러운 줄글로 작성하세요.',
-    '기사에 없는 사실을 추가하지 말고 핵심 사실, 배경, 주요 수치, 영향 또는 전망을 포함하세요.',
-    '제목을 반복하거나 첫째·둘째 같은 순서 표현, 출처 안내, 부연 설명을 쓰지 마세요.',
+    '다음 뉴스 기사 전체 원문을 격식 있는 한국어 문어체로 요약하세요.',
+    '전체 분량은 290~320자로 하고, 반드시 정확히 4줄로 작성하세요.',
+    '각 줄은 완결된 한 문장으로 작성하고 줄바꿈으로만 구분하세요.',
+    '구어체와 존댓말을 쓰지 말고 뉴스 기사체인 ~이다, ~했다, ~할 전망이다 형식을 사용하세요.',
+    '네 줄에 핵심 사실, 배경과 주요 수치, 영향, 향후 전망을 각각 압축해 담으세요.',
+    '기사에 없는 사실을 추가하지 말고 제목 반복, 번호, 글머리표, 출처 안내, 부연 설명을 쓰지 마세요.',
     `제목: ${meta.title || ''}`,
     `언론사: ${meta.source_name || ''}`,
     `원문: ${text.slice(0, 12000)}`
@@ -1500,7 +1527,7 @@ async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
         body: JSON.stringify({ model: 'gpt-4o-mini', input: prompt })
       });
       if (response.ok) {
-        const body = cleanNewsBodyText(extractOpenAIOutputText(await response.json()), meta.category, meta.source_name);
+        const body = formatFourLineWrittenSummary(extractOpenAIOutputText(await response.json()), meta);
         if (body.length >= 220) return { body, provider: 'openai' };
       }
     } catch (error) {
@@ -1520,7 +1547,7 @@ async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
         if (!response.ok) continue;
         const data = await response.json();
         const raw = data?.candidates?.[0]?.content?.parts?.map(part => part.text || '').join(' ') || '';
-        const body = cleanNewsBodyText(raw, meta.category, meta.source_name);
+        const body = formatFourLineWrittenSummary(raw, meta);
         if (body.length >= 220) return { body, provider: 'gemini' };
       } catch (error) {
         console.warn('Gemini 원문 요약 실패:', error?.message || error);
@@ -3262,7 +3289,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v49')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v50')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 

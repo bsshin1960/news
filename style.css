@@ -614,6 +614,7 @@ body.dark-theme .category-group-title.산업 { background: rgba(2, 132, 199, 0.2
 }
 
 .card-body {
+  white-space: pre-line;
   font-size: 18px;
   line-height: 1.7;
   color: var(--text-muted);
