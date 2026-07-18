@@ -1511,6 +1511,17 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
 // 로컬 환경의 경우 Vite 프록시를 사용하여 CORS 문제 없이 수집하며,
 // 외부 환경의 경우 공개 CORS 프록시를 거쳐 최신 뉴스를 가져옵니다.
 // ====================================================
+function convertToBroadcastHonorifics(value) {
+  return String(value || '')
+    .replace(/이다(?=\s*[.!?]|\s*$)/gm, '입니다')
+    .replace(/된다(?=\s*[.!?]|\s*$)/gm, '됩니다')
+    .replace(/한다(?=\s*[.!?]|\s*$)/gm, '합니다')
+    .replace(/있다(?=\s*[.!?]|\s*$)/gm, '있습니다')
+    .replace(/없다(?=\s*[.!?]|\s*$)/gm, '없습니다')
+    .replace(/보인다(?=\s*[.!?]|\s*$)/gm, '보입니다')
+    .replace(/나선다(?=\s*[.!?]|\s*$)/gm, '나섭니다')
+    .replace(/(?:했|됐|었|았|였|혔|웠|섰|졌|렸|쳤|켰|났|갔|왔)다(?=\s*[.!?]|\s*$)/gm, match => `${match.slice(0, -1)}습니다`);
+}
 function formatFourLineWrittenSummary(value, meta = {}) {
   const raw = String(value || '')
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -1524,13 +1535,14 @@ function formatFourLineWrittenSummary(value, meta = {}) {
     const latinCount = (line.match(/[A-Za-z]/g) || []).length;
     return hangulCount >= 10 && hangulCount > latinCount;
   };
+  const isHonorificLine = (line) => /(?:습니다|입니다|됩니다)(?:[.!?]|$)/.test(line.trim());
 
   let lines = raw.split(/\r?\n/)
-    .map(line => cleanNewsBodyText(line, meta.category, meta.source_name))
+    .map(line => convertToBroadcastHonorifics(cleanNewsBodyText(line, meta.category, meta.source_name)))
     .filter(line => line && isKoreanLine(line));
 
   if (lines.length < 4) {
-    const flat = cleanNewsBodyText(raw, meta.category, meta.source_name);
+    const flat = convertToBroadcastHonorifics(cleanNewsBodyText(raw, meta.category, meta.source_name));
     if (!isKoreanLine(flat)) return '';
     lines = flat.split(/(?<=[.!?])\s+/).map(line => line.trim()).filter(isKoreanLine);
   }
@@ -1539,16 +1551,17 @@ function formatFourLineWrittenSummary(value, meta = {}) {
   if (lines.length > 4) {
     lines = [...lines.slice(0, 3), lines.slice(3).join(' ')];
   }
-  return lines.every(isKoreanLine) ? lines.join('\n') : '';
+  return lines.every(line => isKoreanLine(line) && isHonorificLine(line)) ? lines.join('\n') : '';
 }
 
 function formatRssArticleExcerpt(articleText, meta = {}) {
   const cleaned = cleanNewsBodyText(articleText, meta.category, meta.source_name)
+    .replace(/(?:사진은|사진\s*[=:])[^.?!]*(?:모습|장면)\.?/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   if (!cleaned) return '';
   if (normalizeNewsCompareText(cleaned) === normalizeNewsCompareText(meta.title)) return '';
-  return ensureNewsBodyLength(cleaned, meta);
+  return convertToBroadcastHonorifics(ensureNewsBodyLength(cleaned, meta));
 }
 async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
   const text = String(articleText || '').replace(/\s+/g, ' ').trim();
@@ -3469,7 +3482,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v60')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v61')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
