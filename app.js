@@ -1699,6 +1699,7 @@ const result = [];
         // 1차 도메인 검증 (RSS source tag 도메인 우선 검증)
         const sourceTag = item.querySelector('source');
         const sourceUrlAttr = sourceTag ? sourceTag.getAttribute('url') : '';
+        const rssSourceName = (sourceTag?.textContent || '').trim();
         const initialCheckUrl = sourceUrlAttr || link;
         if (!isDomainSelected(initialCheckUrl)) {
           continue;
@@ -1718,6 +1719,7 @@ const result = [];
           sourceName = title.substring(lastDashIndex + 3).trim();
           title = title.substring(0, lastDashIndex).trim();
         }
+        if (rssSourceName) sourceName = rssSourceName;
 
         const cleanDesc = description.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim();
         let articleBodyText = cleanDesc;
@@ -1781,6 +1783,7 @@ const result = [];
               time: timeStr,
               source_name: sourceName,
               source_url: link.trim(),
+              source_home_url: sourceUrlAttr,
               source_type: 'rss',
               summarized_by: 'rss',
               is_short_rss_body: true
@@ -1806,6 +1809,7 @@ const result = [];
             time: timeStr,
             source_name: sourceName,
             source_url: link.trim(),
+            source_home_url: sourceUrlAttr,
             source_type: 'rss',
             raw_article_body: articleBodyText,
             summarized_by: '',
@@ -2984,8 +2988,11 @@ function appendNewsCard(news, index) {
   }
 
   const safeUrl = getSafeNewsUrl(news.source_url);
+  const safeSourceHomeUrl = getSafeNewsUrl(news.source_home_url);
   const sourceName = escapeHtml(news.source_name || '뉴스 원문');
-  const sourceHost = safeUrl ? escapeHtml(new URL(safeUrl).hostname.replace(/^www\./, '')) : '';
+  const articleHost = safeUrl ? new URL(safeUrl).hostname.replace(/^www\./, '') : '';
+  const displayHostUrl = articleHost === 'news.google.com' && safeSourceHomeUrl ? safeSourceHomeUrl : safeUrl;
+  const sourceHost = displayHostUrl ? escapeHtml(new URL(displayHostUrl).hostname.replace(/^www\./, '')) : '';
   const sourceHtml = safeUrl
     ? `<a class="news-source-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(safeUrl)}">${sourceName}${sourceHost ? ` (${sourceHost})` : ''}</a>`
     : `<span class="news-source-text">${sourceName}</span>`;
@@ -3496,7 +3503,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v63')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v64')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
