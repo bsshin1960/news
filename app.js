@@ -960,9 +960,9 @@ function updateNewsSourceModeDisplay() {
       const hasOpenai = (state.openaiApiKey || '').trim().length > 0;
       const hasGemini = (state.apiKey || '').trim().length > 0;
       if (hasOpenai) {
-        modeLabel = '자동 선택 (OpenAI API 우선)';
+        modeLabel = '자동 선택 (RSS 원문 + OpenAI 300자 요약)';
       } else if (hasGemini) {
-        modeLabel = '자동 선택 (Gemini API 우선)';
+        modeLabel = '자동 선택 (RSS 원문 + Gemini 300자 요약)';
       } else {
         modeLabel = '자동 선택 (Google News RSS 피드)';
       }
@@ -1472,6 +1472,65 @@ function getMockNewsForCategory(category, minusMinutes, count = 1) {
 // 로컬 환경의 경우 Vite 프록시를 사용하여 CORS 문제 없이 수집하며,
 // 외부 환경의 경우 공개 CORS 프록시를 거쳐 최신 뉴스를 가져옵니다.
 // ====================================================
+async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
+  const text = String(articleText || '').replace(/\s+/g, ' ').trim();
+  if (text.length < RSS_MIN_BODY_CHARS) return { body: '', provider: '' };
+
+  const prompt = [
+    '다음 뉴스 기사 전체 본문을 한국어 뉴스 본문으로 요약하세요.',
+    '반드시 290~320자 사이의 자연스러운 줄글로 작성하세요.',
+    '기사에 없는 사실을 추가하지 말고 핵심 사실, 배경, 주요 수치, 영향 또는 전망을 포함하세요.',
+    '제목을 반복하거나 첫째·둘째 같은 순서 표현, 출처 안내, 부연 설명을 쓰지 마세요.',
+    `제목: ${meta.title || ''}`,
+    `언론사: ${meta.source_name || ''}`,
+    `원문: ${text.slice(0, 12000)}`
+  ].join('\n');
+
+  if (state.newsSourceMode !== 'gemini' && (state.openaiApiKey || '').trim()) {
+    try {
+      const targetUrl = checkIsLocalEnvironment()
+        ? '/api/openai/v1/responses'
+        : 'https://api.openai.com/v1/responses';
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${state.openaiApiKey.trim()}`
+        },
+        body: JSON.stringify({ model: 'gpt-4o-mini', input: prompt })
+      });
+      if (response.ok) {
+        const body = cleanNewsBodyText(extractOpenAIOutputText(await response.json()), meta.category, meta.source_name);
+        if (body.length >= 220) return { body, provider: 'openai' };
+      }
+    } catch (error) {
+      console.warn('OpenAI 원문 요약 실패:', error?.message || error);
+    }
+  }
+
+  if (state.newsSourceMode !== 'openai' && (state.apiKey || '').trim()) {
+    for (const { name: model, version } of FAST_NEWS_MODEL_CANDIDATES) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${state.apiKey.trim()}`;
+        const response = await rateLimitedFetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        const raw = data?.candidates?.[0]?.content?.parts?.map(part => part.text || '').join(' ') || '';
+        const body = cleanNewsBodyText(raw, meta.category, meta.source_name);
+        if (body.length >= 220) return { body, provider: 'gemini' };
+      } catch (error) {
+        console.warn('Gemini 원문 요약 실패:', error?.message || error);
+      }
+    }
+  }
+
+  return { body: '', provider: '' };
+}
+
 async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname);
   const siteFilter = getQuerySourceFilter();
@@ -1567,7 +1626,20 @@ const result = [];
           }
         }
 
-        const isShortRssBody = articleBodyText.length < RSS_MIN_BODY_CHARS;
+        let summarizedBy = '';
+        if (articleBodyText.length >= RSS_MIN_BODY_CHARS && result.length < count) {
+          const summary = await summarizeExtractedArticleWithApi(articleBodyText, {
+            title,
+            source_name: sourceName,
+            category
+          });
+          if (summary.body) {
+            articleBodyText = summary.body;
+            summarizedBy = summary.provider;
+          }
+        }
+
+        const isShortRssBody = !summarizedBy && articleBodyText.length < RSS_MIN_BODY_CHARS;
         if (isShortRssBody) {
           console.info(`[${category}] RSS 본문이 ${RSS_MIN_BODY_CHARS}자 미만이지만 300자 이상 후보가 없을 때 예비로 사용:`, rawTitle.trim());
         }
@@ -1610,6 +1682,7 @@ const result = [];
             source_name: sourceName,
             source_url: link.trim(),
             source_type: 'rss',
+            summarized_by: summarizedBy,
             is_short_rss_body: isShortRssBody
           };
 
@@ -2002,13 +2075,12 @@ function appendFetchedNewsItems(items, targetTotal) {
 function getPreferredNewsSources() {
   const mode = state.newsSourceMode || 'auto';
   if (mode === 'rss') return ['rss'];
-  if (mode === 'openai') return ['openai', 'rss'];
-  if (mode === 'gemini') return ['gemini', 'rss'];
+  if (mode === 'openai') return ['rss', 'openai'];
+  if (mode === 'gemini') return ['rss', 'gemini'];
 
-  const sources = [];
+  const sources = ['rss'];
   if ((state.openaiApiKey || '').trim()) sources.push('openai');
   if ((state.apiKey || '').trim()) sources.push('gemini');
-  sources.push('rss');
   return sources;
 }
 
@@ -3180,7 +3252,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v47')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v48')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
