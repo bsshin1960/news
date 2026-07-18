@@ -251,6 +251,7 @@ const MOCK_NEWS_TEMPLATES = [
 const synth = window.speechSynthesis;
 let currentUtterance = null;
 let voices = [];
+let ttsUnlockedByGesture = false;
 
 // ====================================================
 // 2. 초기 로드 및 UI 이벤트 바인딩
@@ -2392,7 +2393,8 @@ async function fetchRemainingNewsByPlan(apiKey, categoryCounts, prompt, targetTo
 
         const appended = appendFetchedNewsItems(items, targetTotal);
         if (appended > 0 && !state.isPlaying) {
-          updatePlayerStatus('읽기 시작', '먼저 도착한 최신 뉴스부터 바로 읽어 드립니다.');
+          updatePlayerStatus('뉴스 준비 완료', '재생 버튼을 누르면 먼저 도착한 최신 뉴스부터 읽어 드립니다.');
+          if (!ttsUnlockedByGesture) continue;
           setTimeout(() => {
             if (sessionId === currentFetchSession && state.newsList.length > 0 && !state.isPlaying) {
               playNewsAtIndex(0, true);
@@ -3405,6 +3407,7 @@ function stopSilentAudioHack() {
 
 // 모바일 브라우저 오디오 오토플레이 제한 잠금 해제
 function unlockTtsOnMobile() {
+  ttsUnlockedByGesture = true;
   if (window.speechSynthesis) {
     const silentUtterance = new SpeechSynthesisUtterance('');
     window.speechSynthesis.speak(silentUtterance);
@@ -3412,6 +3415,11 @@ function unlockTtsOnMobile() {
   }
   document.removeEventListener('click', unlockTtsOnMobile);
   document.removeEventListener('touchstart', unlockTtsOnMobile);
+
+  if (state.shouldAutoplayOnGesture && state.newsList.length > 0 && !state.isPlaying) {
+    state.shouldAutoplayOnGesture = false;
+    playNewsAtIndex(0, true);
+  }
 }
 document.addEventListener('click', unlockTtsOnMobile);
 document.addEventListener('touchstart', unlockTtsOnMobile);
@@ -3419,7 +3427,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v55')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v56')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
