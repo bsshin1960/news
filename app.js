@@ -117,6 +117,7 @@ let state = {
   prompt: '',
   apiKey: '',
   openaiApiKey: '',
+  groqApiKey: '',
   newsSourceMode: 'auto',
   voiceName: '',
   speed: 1.0,
@@ -257,7 +258,7 @@ let voices = [];
 window.addEventListener('DOMContentLoaded', async () => {
   await restoreSharedSettingsForThisDevice();
   initStorage();
-  if (!isMobileRuntime() && (state.apiKey || state.openaiApiKey)) {
+  if (!isMobileRuntime() && (state.apiKey || state.openaiApiKey || state.groqApiKey)) {
     void persistSharedNewsSettings();
   }
   initVoices();
@@ -828,6 +829,7 @@ function initStorage() {
   const savedPrompt = localStorage.getItem('news_prompt');
   const savedApiKey = localStorage.getItem('news_api_key');
   const savedOpenaiApiKey = localStorage.getItem('news_openai_api_key');
+  const savedGroqApiKey = localStorage.getItem('news_groq_api_key');
   const savedSourceMode = localStorage.getItem('news_source_mode');
   const savedVoice = localStorage.getItem('news_voice');
   const savedSpeed = localStorage.getItem('news_speed');
@@ -845,7 +847,10 @@ function initStorage() {
   if (savedOpenaiApiKey !== null) {
     state.openaiApiKey = savedOpenaiApiKey.trim();
   }
-  if (savedSourceMode && ['auto', 'openai', 'gemini', 'rss'].includes(savedSourceMode)) {
+  if (savedGroqApiKey !== null) {
+    state.groqApiKey = savedGroqApiKey.trim();
+  }
+  if (savedSourceMode && ['auto', 'openai', 'gemini', 'groq', 'rss'].includes(savedSourceMode)) {
     state.newsSourceMode = savedSourceMode;
   }
   if (savedVoice) {
@@ -920,6 +925,8 @@ function initStorage() {
   document.getElementById('api-key-input').value = state.apiKey;
   const openaiInput = document.getElementById('openai-api-key-input');
   if (openaiInput) openaiInput.value = state.openaiApiKey;
+  const groqInput = document.getElementById('groq-api-key-input');
+  if (groqInput) groqInput.value = state.groqApiKey;
   const sourceModeSelect = document.getElementById('news-source-mode');
   if (sourceModeSelect) sourceModeSelect.value = state.newsSourceMode;
   document.getElementById('speed-slider').value = state.speed;
@@ -973,6 +980,8 @@ function updateNewsSourceModeDisplay() {
       modeLabel = 'OpenAI API';
     } else if (mode === 'gemini') {
       modeLabel = 'Gemini API';
+    } else if (mode === 'groq') {
+      modeLabel = 'Groq API';
     } else if (mode === 'rss') {
       modeLabel = 'Google News RSS 피드';
     }
@@ -1360,6 +1369,7 @@ function saveSettings() {
   const promptValue = document.getElementById('prompt-input').value;
   const apiKeyValue = document.getElementById('api-key-input').value.trim();
   const openaiApiKeyValue = document.getElementById('openai-api-key-input')?.value.trim() || '';
+  const groqApiKeyValue = document.getElementById('groq-api-key-input')?.value.trim() || '';
   const sourceModeValue = document.getElementById('news-source-mode')?.value || 'auto';
   const voiceValue = document.getElementById('voice-select').value;
   const speedValue = parseFloat(document.getElementById('speed-slider').value);
@@ -1369,7 +1379,8 @@ function saveSettings() {
   state.prompt = promptValue;
   state.apiKey = apiKeyValue;
   state.openaiApiKey = openaiApiKeyValue;
-  state.newsSourceMode = ['auto', 'openai', 'gemini', 'rss'].includes(sourceModeValue) ? sourceModeValue : 'auto';
+  state.groqApiKey = groqApiKeyValue;
+  state.newsSourceMode = ['auto', 'openai', 'gemini', 'groq', 'rss'].includes(sourceModeValue) ? sourceModeValue : 'auto';
   state.voiceName = voiceValue;
   state.speed = speedValue;
   state.newsDetailChars = detailCharsValue;
@@ -1382,6 +1393,7 @@ function saveSettings() {
   localStorage.setItem('news_prompt', promptValue);
   localStorage.setItem('news_api_key', apiKeyValue);
   localStorage.setItem('news_openai_api_key', openaiApiKeyValue);
+  localStorage.setItem('news_groq_api_key', groqApiKeyValue);
   localStorage.setItem('news_source_mode', state.newsSourceMode);
   localStorage.setItem('news_voice', voiceValue);
   localStorage.setItem('news_speed', speedValue.toString());
@@ -1515,7 +1527,33 @@ async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
     `원문: ${text.slice(0, 12000)}`
   ].join('\n');
 
-  if (state.newsSourceMode !== 'gemini' && (state.openaiApiKey || '').trim()) {
+  if (state.newsSourceMode !== 'gemini' && state.newsSourceMode !== 'openai' && (state.groqApiKey || '').trim()) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${state.groqApiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: 'qwen/qwen3.6-27b',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.2,
+          max_completion_tokens: 600
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const raw = data?.choices?.[0]?.message?.content || '';
+        const body = formatFourLineWrittenSummary(raw, meta);
+        if (body.length >= 220) return { body, provider: 'groq' };
+      }
+    } catch (error) {
+      console.warn('Groq 원문 요약 실패:', error?.message || error);
+    }
+  }
+
+  if (state.newsSourceMode !== 'gemini' && state.newsSourceMode !== 'groq' && (state.openaiApiKey || '').trim()) {
     try {
       const targetUrl = checkIsLocalEnvironment()
         ? '/api/openai/v1/responses'
@@ -1537,7 +1575,7 @@ async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
     }
   }
 
-  if (state.newsSourceMode !== 'openai' && (state.apiKey || '').trim()) {
+  if (state.newsSourceMode !== 'openai' && state.newsSourceMode !== 'groq' && (state.apiKey || '').trim()) {
     for (const { name: model, version } of FAST_NEWS_MODEL_CANDIDATES) {
       try {
         const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${state.apiKey.trim()}`;
@@ -1718,7 +1756,7 @@ const result = [];
           console.warn(state.lastRssError);
         }
         const selected = selectRandomUnseenNewsItems(pool, count);
-        const hasSummaryApi = Boolean((state.openaiApiKey || '').trim() || (state.apiKey || '').trim());
+        const hasSummaryApi = Boolean((state.groqApiKey || '').trim() || (state.openaiApiKey || '').trim() || (state.apiKey || '').trim());
         const finalized = [];
 
         // Select first, then summarize only the articles that will actually be shown.
@@ -1806,6 +1844,7 @@ async function restoreSharedSettingsForThisDevice() {
       prompt: 'news_prompt',
       apiKey: 'news_api_key',
       openaiApiKey: 'news_openai_api_key',
+      groqApiKey: 'news_groq_api_key',
       newsSourceMode: 'news_source_mode',
       newsDetailChars: 'news_detail_chars',
       briefingMode: 'news_briefing_mode'
@@ -1836,6 +1875,7 @@ async function persistSharedNewsSettings() {
         prompt: state.prompt,
         apiKey: state.apiKey,
         openaiApiKey: state.openaiApiKey,
+        groqApiKey: state.groqApiKey,
         newsSourceMode: state.newsSourceMode,
         newsDetailChars: state.newsDetailChars,
         briefingMode: state.briefingMode
@@ -2116,8 +2156,10 @@ function getPreferredNewsSources() {
   if (mode === 'rss') return ['rss'];
   if (mode === 'openai') return ['rss', 'openai'];
   if (mode === 'gemini') return ['rss', 'gemini'];
+  if (mode === 'groq') return ['rss'];
 
   const sources = ['rss'];
+  if ((state.groqApiKey || '').trim()) return sources;
   if ((state.openaiApiKey || '').trim()) sources.push('openai');
   if ((state.apiKey || '').trim()) sources.push('gemini');
   return sources;
@@ -2126,6 +2168,7 @@ function getPreferredNewsSources() {
 function getNewsSourceLabel(source) {
   if (source === 'openai') return 'OpenAI API';
   if (source === 'gemini') return 'Gemini API';
+  if (source === 'groq') return 'Groq API';
   return 'Google News RSS';
 }
 
@@ -3331,7 +3374,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v52')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v53')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
