@@ -1626,20 +1626,7 @@ const result = [];
           }
         }
 
-        let summarizedBy = '';
-        if (articleBodyText.length >= RSS_MIN_BODY_CHARS && result.length < count) {
-          const summary = await summarizeExtractedArticleWithApi(articleBodyText, {
-            title,
-            source_name: sourceName,
-            category
-          });
-          if (summary.body) {
-            articleBodyText = summary.body;
-            summarizedBy = summary.provider;
-          }
-        }
-
-        const isShortRssBody = !summarizedBy && articleBodyText.length < RSS_MIN_BODY_CHARS;
+        const isShortRssBody = articleBodyText.length < RSS_MIN_BODY_CHARS;
         if (isShortRssBody) {
           console.info(`[${category}] RSS 본문이 ${RSS_MIN_BODY_CHARS}자 미만이지만 300자 이상 후보가 없을 때 예비로 사용:`, rawTitle.trim());
         }
@@ -1682,7 +1669,8 @@ const result = [];
             source_name: sourceName,
             source_url: link.trim(),
             source_type: 'rss',
-            summarized_by: summarizedBy,
+            raw_article_body: articleBodyText,
+            summarized_by: '',
             is_short_rss_body: isShortRssBody
           };
 
@@ -1701,10 +1689,32 @@ const result = [];
           console.warn(state.lastRssError);
         }
         const selected = selectRandomUnseenNewsItems(pool, count);
-        console.log(`✅ [${category}] Google News RSS 수집 성공 (${selected.length}/${pool.length}건, 긴 본문 ${result.length}건, 예비 ${fallbackResult.length}건)`);
-        return selected;
+        const hasSummaryApi = Boolean((state.openaiApiKey || '').trim() || (state.apiKey || '').trim());
+        const finalized = [];
+
+        // Select first, then summarize only the articles that will actually be shown.
+        for (const item of selected) {
+          const rawArticleBody = String(item.raw_article_body || item.body || '').trim();
+          if (hasSummaryApi) {
+            const summary = await summarizeExtractedArticleWithApi(rawArticleBody, item);
+            if (!summary.body) {
+              const error = new Error('선택된 RSS 기사의 API 요약에 실패했습니다.');
+              error.code = 'RSS_API_SUMMARY_FAILED';
+              throw error;
+            }
+            item.body = ensureNewsBodyLength(summary.body, item);
+            item.summarized_by = summary.provider;
+            item.is_short_rss_body = false;
+          }
+          delete item.raw_article_body;
+          finalized.push(item);
+        }
+
+        console.log(`✅ [${category}] Google News RSS 수집 성공 (${finalized.length}/${pool.length}건, 긴 본문 ${result.length}건, 예비 ${fallbackResult.length}건)`);
+        return finalized;
       }
     } catch (e) {
+      if (e?.code === 'RSS_API_SUMMARY_FAILED') throw e;
       console.warn(`⚠️ Proxy [${fetchUrl}] 수집 실패:`, e.message);
     }
   }
@@ -3252,7 +3262,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v48')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v49')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
