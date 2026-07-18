@@ -1,4 +1,4 @@
-const CACHE_NAME = 'news-tts-v57';
+const CACHE_NAME = 'news-tts-v58';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

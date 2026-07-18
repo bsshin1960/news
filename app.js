@@ -1524,6 +1524,14 @@ function formatFourLineWrittenSummary(value, meta = {}) {
   return lines.every(isKoreanLine) ? lines.join('\n') : '';
 }
 
+function formatRssArticleExcerpt(articleText, meta = {}) {
+  const cleaned = cleanNewsBodyText(articleText, meta.category, meta.source_name)
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return '';
+  if (normalizeNewsCompareText(cleaned) === normalizeNewsCompareText(meta.title)) return '';
+  return ensureNewsBodyLength(cleaned, meta);
+}
 async function summarizeExtractedArticleWithApi(articleText, meta = {}) {
   const text = String(articleText || '').replace(/\s+/g, ' ').trim();
   if (text.length < RSS_MIN_BODY_CHARS) return { body: '', provider: '' };
@@ -1783,16 +1791,21 @@ const result = [];
         // Select first, then summarize only the articles that will actually be shown.
         for (const item of selected) {
           const rawArticleBody = String(item.raw_article_body || item.body || '').trim();
+          const rssExcerpt = formatRssArticleExcerpt(rawArticleBody, item) || item.body;
           if (hasSummaryApi) {
             const summary = await summarizeExtractedArticleWithApi(rawArticleBody, item);
-            if (!summary.body) {
-              const error = new Error('선택된 RSS 기사의 API 요약에 실패했습니다.');
-              error.code = 'RSS_API_SUMMARY_FAILED';
-              throw error;
+            if (summary.body) {
+              item.body = ensureNewsBodyLength(summary.body, item);
+              item.summarized_by = summary.provider;
+              item.is_short_rss_body = false;
+            } else {
+              item.body = rssExcerpt;
+              item.summarized_by = 'rss';
+              console.warn('모든 요약 API가 실패하여 실제 RSS 원문 앞부분을 표시합니다:', item.title);
             }
-            item.body = ensureNewsBodyLength(summary.body, item);
-            item.summarized_by = summary.provider;
-            item.is_short_rss_body = false;
+          } else {
+            item.body = rssExcerpt;
+            item.summarized_by = 'rss';
           }
           delete item.raw_article_body;
           finalized.push(item);
@@ -3432,7 +3445,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v57')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v58')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
