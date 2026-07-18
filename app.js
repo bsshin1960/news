@@ -25,9 +25,9 @@ const READER_API_REQUEST_LIMIT = 32;
 const NEWS_SEEN_STORAGE_KEY = 'news_seen_items_v1';
 const NEWS_SEEN_LIMIT = 200;
 const NEWS_SEEN_TTL_MS = NEWS_RECENCY_HOURS * 60 * 60 * 1000;
-const DEFAULT_NEWS_DETAIL_CHARS = 350;
+const DEFAULT_NEWS_DETAIL_CHARS = 300;
 const MIN_NEWS_DETAIL_CHARS = 150;
-const MAX_NEWS_DETAIL_CHARS = 500;
+const MAX_NEWS_DETAIL_CHARS = 320;
 let nextGeminiRequestAt = 0;
 let geminiRequestQueue = Promise.resolve();
 
@@ -327,7 +327,7 @@ function ensureNewsBodyLength(body, meta = {}) {
     base = `${title}.`;
   }
 
-  // RSS나 외부 텍스트 추출물 등의 대용량 본문을 설정값(500자 내외)에 맞게 문장 단위로 절삭
+  // RSS나 외부 텍스트 추출물 등의 대용량 본문을 약 300자 범위에서 문장 단위로 절삭
   const maxChars = getNewsDetailMaxChars();
   if (base.length > maxChars) {
     const sub = base.substring(0, maxChars);
@@ -866,9 +866,7 @@ function initStorage() {
   if (savedDetailChars) {
     state.newsDetailChars = normalizeNewsDetailChars(savedDetailChars);
   }
-  if (isMobileRuntime()) {
-    state.newsDetailChars = Math.max(350, state.newsDetailChars);
-  }
+
   const savedBriefingMode = localStorage.getItem('news_briefing_mode');
   if (savedBriefingMode && ['headlines_then_body', 'headline_only', 'body_only'].includes(savedBriefingMode)) {
     state.briefingMode = savedBriefingMode;
@@ -3503,7 +3501,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v64')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v65')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
