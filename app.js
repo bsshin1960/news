@@ -781,22 +781,7 @@ async function fetchArticleDetailsForRss(articleUrl) {
     }
   }
 
-  // On GitHub Pages, try the mobile reader first. It follows redirects itself in
-  // most cases and avoids several slow proxy round-trips before the first card.
-  const directReaderDetails = await fetchArticleWithReaderApi(url);
-  if (directReaderDetails.text.length >= RSS_MIN_BODY_CHARS) {
-    return directReaderDetails;
-  }
-
-  // Keep the previous URL-resolution route only as a fallback for publishers
-  // whose Google News redirect cannot be followed directly by the reader.
   const resolvedUrl = await resolveGoogleNewsUrlClient(url);
-  if (resolvedUrl !== url) {
-    const resolvedReaderDetails = await fetchArticleWithReaderApi(resolvedUrl);
-    if (resolvedReaderDetails.text.length >= RSS_MIN_BODY_CHARS) {
-      return resolvedReaderDetails;
-    }
-  }
 
   const corsProxies = [
     'https://api.allorigins.win/raw?url=',
@@ -808,7 +793,7 @@ async function fetchArticleDetailsForRss(articleUrl) {
     try {
       const fetchUrl = `${proxy}${encodeURIComponent(resolvedUrl)}`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
+      const timer = setTimeout(() => controller.abort(), 15000);
       const response = await fetch(fetchUrl, { signal: controller.signal });
       clearTimeout(timer);
 
@@ -3511,7 +3496,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v62')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v63')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
