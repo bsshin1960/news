@@ -947,6 +947,7 @@ function updateNewsSourceModeDisplay() {
   if (state.newsList && state.newsList.length > 0) {
     const types = new Set();
     state.newsList.forEach(item => {
+      if (item.summarized_by) types.add(item.summarized_by);
       if (item.isMock || item.source_type === 'mock') {
         types.add('mock');
       } else {
@@ -955,6 +956,7 @@ function updateNewsSourceModeDisplay() {
     });
 
     const labels = [];
+    if (types.has('groq')) labels.push('Groq API');
     if (types.has('openai')) labels.push('OpenAI API');
     if (types.has('gemini')) labels.push('Gemini API');
     if (types.has('rss')) labels.push('Google News RSS 피드');
@@ -970,7 +972,10 @@ function updateNewsSourceModeDisplay() {
     if (mode === 'auto') {
       const hasOpenai = (state.openaiApiKey || '').trim().length > 0;
       const hasGemini = (state.apiKey || '').trim().length > 0;
-      if (hasOpenai) {
+      const hasGroq = (state.groqApiKey || '').trim().length > 0;
+      if (hasGroq) {
+        modeLabel = '자동 선택 (RSS 원문 + Groq 300자 요약)';
+      } else if (hasOpenai) {
         modeLabel = '자동 선택 (RSS 원문 + OpenAI 300자 요약)';
       } else if (hasGemini) {
         modeLabel = '자동 선택 (RSS 원문 + Gemini 300자 요약)';
@@ -3427,7 +3432,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v56')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v57')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
