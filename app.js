@@ -4,6 +4,7 @@
 let currentFetchSession = 0;
 let lastRenderedCategory = '';
 let backgroundFetchPending = 0;
+let readerApiRequestCount = 0;
 const FAST_NEWS_MODEL_CANDIDATES = [
   { name: 'gemini-2.0-flash', version: 'v1beta' },
   { name: 'gemini-1.5-flash', version: 'v1beta' }
@@ -20,6 +21,7 @@ const NEWS_RECENCY_HOURS = 12;
 const RSS_MIN_BODY_CHARS = 300;
 const RSS_MAX_ITEMS_TO_SCAN = 18;
 const RSS_ARTICLE_TEXT_ATTEMPT_LIMIT = 6;
+const READER_API_REQUEST_LIMIT = 12;
 const NEWS_SEEN_STORAGE_KEY = 'news_seen_items_v1';
 const NEWS_SEEN_LIMIT = 200;
 const NEWS_SEEN_TTL_MS = NEWS_RECENCY_HOURS * 60 * 60 * 1000;
@@ -677,6 +679,52 @@ function extractTextFromHtmlClient(htmlText) {
   }
 }
 
+function cleanReaderArticleText(value = '') {
+  return String(value || '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function fetchArticleWithReaderApi(articleUrl) {
+  if (!articleUrl || readerApiRequestCount >= READER_API_REQUEST_LIMIT) {
+    return { title: '', text: '', finalUrl: articleUrl };
+  }
+
+  readerApiRequestCount += 1;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 18000);
+
+  try {
+    const response = await fetch(`https://r.jina.ai/${articleUrl}`, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'X-Return-Format': 'markdown',
+        'X-Timeout': '12'
+      }
+    });
+    if (!response.ok) return { title: '', text: '', finalUrl: articleUrl };
+
+    const payload = await response.json();
+    const data = payload?.data || payload || {};
+    const title = cleanReaderArticleText(data.title || '');
+    const text = cleanReaderArticleText(data.content || data.text || '');
+    const finalUrl = String(data.url || articleUrl).trim();
+    return { title, text, finalUrl };
+  } catch (error) {
+    console.info('모바일 원문 읽기 서비스 요청 실패:', error?.message || error);
+    return { title: '', text: '', finalUrl: articleUrl };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchArticleDetailsForRss(articleUrl) {
   const url = String(articleUrl || '').trim();
   if (!url) return { title: '', text: '', finalUrl: url };
@@ -711,6 +759,14 @@ async function fetchArticleDetailsForRss(articleUrl) {
   }
 
   const resolvedUrl = await resolveGoogleNewsUrlClient(url);
+
+  // GitHub Pages has no local article-text server. Reader API provides the same
+  // primary-content extraction path to mobile without exposing the PC API keys.
+  const readerDetails = await fetchArticleWithReaderApi(resolvedUrl);
+  if (readerDetails.text.length >= RSS_MIN_BODY_CHARS) {
+    return readerDetails;
+  }
+
   const corsProxies = [
     'https://api.allorigins.win/raw?url=',
     'https://corsproxy.io/?',
@@ -789,6 +845,9 @@ function initStorage() {
   }
   if (savedDetailChars) {
     state.newsDetailChars = normalizeNewsDetailChars(savedDetailChars);
+  }
+  if (isMobileRuntime()) {
+    state.newsDetailChars = Math.max(350, state.newsDetailChars);
   }
   const savedBriefingMode = localStorage.getItem('news_briefing_mode');
   if (savedBriefingMode && ['headlines_then_body', 'headline_only', 'body_only'].includes(savedBriefingMode)) {
@@ -2141,6 +2200,7 @@ async function fetchNews() {
   state.lastOpenaiError = '';
   state.lastRssError = '';
   backgroundFetchPending = 0;
+  readerApiRequestCount = 0;
   lastRenderedCategory = '';
 
   const selectedCategories = [...state.categories];
@@ -3112,7 +3172,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v45')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v46')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
