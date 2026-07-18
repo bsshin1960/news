@@ -20,7 +20,7 @@ const GEMINI_QUOTA_RETRY_PADDING_MS = 1500;
 const NEWS_RECENCY_HOURS = 12;
 const RSS_MIN_BODY_CHARS = 300;
 const RSS_MAX_ITEMS_TO_SCAN = 18;
-const RSS_ARTICLE_TEXT_ATTEMPT_LIMIT = 6;
+const RSS_ARTICLE_TEXT_ATTEMPT_LIMIT = 4;
 const READER_API_REQUEST_LIMIT = 12;
 const NEWS_SEEN_STORAGE_KEY = 'news_seen_items_v1';
 const NEWS_SEEN_LIMIT = 200;
@@ -698,7 +698,7 @@ async function fetchArticleWithReaderApi(articleUrl) {
 
   readerApiRequestCount += 1;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 18000);
+  const timer = setTimeout(() => controller.abort(), 10000);
 
   try {
     const response = await fetch(`https://r.jina.ai/${articleUrl}`, {
@@ -706,7 +706,7 @@ async function fetchArticleWithReaderApi(articleUrl) {
       headers: {
         Accept: 'application/json',
         'X-Return-Format': 'markdown',
-        'X-Timeout': '12'
+        'X-Timeout': '8'
       }
     });
     if (!response.ok) return { title: '', text: '', finalUrl: articleUrl };
@@ -758,13 +758,21 @@ async function fetchArticleDetailsForRss(articleUrl) {
     }
   }
 
-  const resolvedUrl = await resolveGoogleNewsUrlClient(url);
+  // On GitHub Pages, try the mobile reader first. It follows redirects itself in
+  // most cases and avoids several slow proxy round-trips before the first card.
+  const directReaderDetails = await fetchArticleWithReaderApi(url);
+  if (directReaderDetails.text.length >= RSS_MIN_BODY_CHARS) {
+    return directReaderDetails;
+  }
 
-  // GitHub Pages has no local article-text server. Reader API provides the same
-  // primary-content extraction path to mobile without exposing the PC API keys.
-  const readerDetails = await fetchArticleWithReaderApi(resolvedUrl);
-  if (readerDetails.text.length >= RSS_MIN_BODY_CHARS) {
-    return readerDetails;
+  // Keep the previous URL-resolution route only as a fallback for publishers
+  // whose Google News redirect cannot be followed directly by the reader.
+  const resolvedUrl = await resolveGoogleNewsUrlClient(url);
+  if (resolvedUrl !== url) {
+    const resolvedReaderDetails = await fetchArticleWithReaderApi(resolvedUrl);
+    if (resolvedReaderDetails.text.length >= RSS_MIN_BODY_CHARS) {
+      return resolvedReaderDetails;
+    }
   }
 
   const corsProxies = [
@@ -777,7 +785,7 @@ async function fetchArticleDetailsForRss(articleUrl) {
     try {
       const fetchUrl = `${proxy}${encodeURIComponent(resolvedUrl)}`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
+      const timer = setTimeout(() => controller.abort(), 8000);
       const response = await fetch(fetchUrl, { signal: controller.signal });
       clearTimeout(timer);
 
@@ -3172,7 +3180,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v46')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v47')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
