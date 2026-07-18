@@ -391,6 +391,24 @@ function isUsefulExtractedArticleBody(extractedBody, rssBody) {
   return extracted.length > rss.length;
 }
 
+function isNarrationUnfriendlyArticle(body, title = '') {
+  const raw = String(body || '');
+  const text = raw.replace(/\s+/g, ' ').trim();
+  const heading = String(title || '').trim();
+  if (!text) return true;
+
+  const tableSeparators = (raw.match(/\|/g) || []).length;
+  const temperatureRanges = (text.match(/-?\d{1,2}\s*[~～–-]\s*-?\d{1,2}\s*(?:도|℃)?/g) || []).length;
+  const numericTokens = (text.match(/\b\d+(?:[.,]\d+)?(?:%|도|℃)?\b/g) || []).length;
+  const sentenceCount = (text.match(/[.!?](?:\s|$)/g) || []).length;
+  const weatherListTitle = /(세계의\s*날씨|주요\s*도시.*날씨|도시별.*날씨)/.test(heading);
+
+  if (tableSeparators >= 6 || /(?:^|\n)\s*[-:]+\s*\|/.test(raw)) return true;
+  if (temperatureRanges >= 6) return true;
+  if (weatherListTitle && temperatureRanges >= 3) return true;
+  if (numericTokens >= 15 && sentenceCount <= 3) return true;
+  return false;
+}
 function isGoogleNewsUrl(value = '') {
   try {
     const url = new URL(value);
@@ -1738,6 +1756,12 @@ const result = [];
 
         const displayBody = cleanNewsBodyText(articleBodyText, category, sourceName);
         const displayTitle = cleanNewsBodyText(title, category, sourceName);
+
+        if (isNarrationUnfriendlyArticle(articleBodyText, displayTitle)) {
+          console.info('표·수치 목록형 기사라 낭독 후보에서 제외합니다:', displayTitle);
+          continue;
+        }
+
         const bodyMatchesTitle = normalizeNewsCompareText(displayBody) === normalizeNewsCompareText(displayTitle);
 
         // Google News RSS sometimes returns the headline itself as its description.
@@ -3445,7 +3469,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v58')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v59')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
