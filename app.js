@@ -19,11 +19,11 @@ const GEMINI_QUOTA_RETRY_PADDING_MS = 1500;
 const NEWS_RECENCY_HOURS = 12;
 const RSS_MIN_BODY_CHARS = 300;
 const RSS_MAX_ITEMS_TO_SCAN = 18;
-const RSS_ARTICLE_TEXT_ATTEMPT_LIMIT = 3;
+const RSS_ARTICLE_TEXT_ATTEMPT_LIMIT = 6;
 const NEWS_SEEN_STORAGE_KEY = 'news_seen_items_v1';
 const NEWS_SEEN_LIMIT = 200;
 const NEWS_SEEN_TTL_MS = NEWS_RECENCY_HOURS * 60 * 60 * 1000;
-const DEFAULT_NEWS_DETAIL_CHARS = 300;
+const DEFAULT_NEWS_DETAIL_CHARS = 350;
 const MIN_NEWS_DETAIL_CHARS = 150;
 const MAX_NEWS_DETAIL_CHARS = 500;
 let nextGeminiRequestAt = 0;
@@ -1516,6 +1516,14 @@ const result = [];
 
         const displayBody = cleanNewsBodyText(articleBodyText, category, sourceName);
         const displayTitle = cleanNewsBodyText(title, category, sourceName);
+        const bodyMatchesTitle = normalizeNewsCompareText(displayBody) === normalizeNewsCompareText(displayTitle);
+
+        // Google News RSS sometimes returns the headline itself as its description.
+        // It is not an article body, so never render it as one on mobile.
+        if (bodyMatchesTitle) {
+          console.info('제목과 동일한 RSS 본문 후보를 제외합니다:', displayTitle);
+          continue;
+        }
 
         if (sourceName && displayBody) {
           let body = ensureNewsBodyLength(displayBody || displayTitle, {
@@ -3104,7 +3112,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v44')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v45')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
