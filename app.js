@@ -19,9 +19,9 @@ const GEMINI_MIN_REQUEST_INTERVAL_MS = 3500;
 const GEMINI_QUOTA_RETRY_PADDING_MS = 1500;
 const NEWS_RECENCY_HOURS = 12;
 const RSS_MIN_BODY_CHARS = 300;
-const RSS_MAX_ITEMS_TO_SCAN = 18;
-const RSS_ARTICLE_TEXT_ATTEMPT_LIMIT = 4;
-const READER_API_REQUEST_LIMIT = 12;
+const RSS_MAX_ITEMS_TO_SCAN = 24;
+const RSS_ARTICLE_TEXT_ATTEMPT_LIMIT = 8;
+const READER_API_REQUEST_LIMIT = 32;
 const NEWS_SEEN_STORAGE_KEY = 'news_seen_items_v1';
 const NEWS_SEEN_LIMIT = 200;
 const NEWS_SEEN_TTL_MS = NEWS_RECENCY_HOURS * 60 * 60 * 1000;
@@ -1665,6 +1665,7 @@ async function fetchGoogleNewsRSS(category, count = 1, options = {}) {
   const targetPath = `/rss/search?q=${query}&hl=ko&gl=KR&ceid=KR:ko`;
 
   const urls = [];
+  const emergencyCandidates = [];
   if (isLocal) {
     urls.push(`/api/google-news${targetPath}`);
   }
@@ -1769,6 +1770,11 @@ const result = [];
 
         const displayBody = cleanNewsBodyText(articleBodyText, category, sourceName);
         const displayTitle = cleanNewsBodyText(title, category, sourceName);
+        const genericPortalTitle = /^(?:google|최신|전체|전체[｜|]\s*리스트|네이버\s*증권|동아일보)$/i.test(displayTitle.replace(/^[-–—]\s*/, '').trim());
+        if (!displayTitle || genericPortalTitle) {
+          console.info('기사 제목이 아닌 포털·목록 항목을 제외합니다:', displayTitle);
+          continue;
+        }
 
         if (isNarrationUnfriendlyArticle(articleBodyText, displayTitle)) {
           console.info('표·수치 목록형 기사라 낭독 후보에서 제외합니다:', displayTitle);
@@ -1780,7 +1786,21 @@ const result = [];
         // Google News RSS sometimes returns the headline itself as its description.
         // It is not an article body, so never render it as one on mobile.
         if (bodyMatchesTitle) {
-          console.info('제목과 동일한 RSS 본문 후보를 제외합니다:', displayTitle);
+          console.info('원문 추출 실패로 RSS 제목·설명을 안전 후보로 보관합니다:', displayTitle);
+          if (!/(세계의\s*날씨|주요\s*도시.*날씨|도시별.*날씨)/.test(displayTitle)) {
+            emergencyCandidates.push({
+              id: Date.now() + i + Math.floor(Math.random() * 1000),
+              category,
+              title: displayTitle,
+              body: `${displayTitle} 관련 최신 소식이 RSS를 통해 확인됐습니다. 원문 본문을 불러오기 어려워 RSS가 제공한 기사 정보를 먼저 전해드립니다.`,
+              time: timeStr,
+              source_name: sourceName,
+              source_url: link.trim(),
+              source_type: 'rss',
+              summarized_by: 'rss',
+              is_short_rss_body: true
+            });
+          }
           continue;
         }
 
@@ -1854,6 +1874,15 @@ const result = [];
     } catch (e) {
       if (e?.code === 'RSS_API_SUMMARY_FAILED') throw e;
       console.warn(`⚠️ Proxy [${fetchUrl}] 수집 실패:`, e.message);
+    }
+  }
+
+  if (emergencyCandidates.length > 0) {
+    const selectedEmergency = selectRandomUnseenNewsItems(emergencyCandidates, count);
+    if (selectedEmergency.length > 0) {
+      state.lastRssError = `[${category}] 원문 추출이 어려워 RSS가 제공한 실제 기사 정보를 표시합니다`;
+      console.warn(state.lastRssError);
+      return selectedEmergency;
     }
   }
 
@@ -3482,7 +3511,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v61')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v62')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
