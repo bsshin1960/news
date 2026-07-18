@@ -2041,9 +2041,7 @@ function normalizeNewsCompareText(value) {
 }
 
 function normalizeNewsCompareUrl(value) {
-  const raw = String(value || '')
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/^(?:here(?:'s| is)|analysis|reasoning|thinking)[\s\S]*?(?=[가-힣])/i, '').trim();
+  const raw = String(value || '').trim();
   if (!raw) return '';
 
   try {
@@ -2329,6 +2327,31 @@ async function fetchFirstNewsFast(categories, prompt, targetTotal, sessionId) {
   }
 }
 
+async function fetchFirstTwoRssNews(categories, prompt, targetTotal, sessionId) {
+  const priorityCount = Math.min(2, targetTotal);
+  let attempts = 0;
+
+  while (sessionId === currentFetchSession && state.newsList.length < priorityCount && attempts < categories.length * 3) {
+    const category = categories[attempts % categories.length];
+    attempts += 1;
+    try {
+      const items = await fetchNewsItemsForCategory(category, 1, { prompt, fastFirst: state.newsList.length === 0 });
+      if (sessionId !== currentFetchSession) return;
+      const appended = appendFetchedNewsItems(items, targetTotal);
+      if (appended > 0) {
+        updatePlayerStatus(
+          state.newsList.length === 1 ? '첫 뉴스 준비 완료' : '두 번째 뉴스 준비 완료',
+          state.newsList.length === 1
+            ? '두 번째 최신 뉴스를 계속 검색하고 요약하고 있습니다.'
+            : '나머지 최신 뉴스는 백그라운드에서 계속 수집하고 있습니다.'
+        );
+      }
+    } catch (error) {
+      state.lastRssError = error?.message || String(error);
+      console.warn(`${category} 우선 뉴스 검색 실패:`, error);
+    }
+  }
+}
 async function fetchRemainingNewsByPlan(apiKey, categoryCounts, prompt, targetTotal, sessionId, attempt = 0) {
   if (sessionId !== currentFetchSession || state.newsList.length >= targetTotal) return;
 
@@ -2441,10 +2464,15 @@ async function fetchNews() {
     categoryCounts[cat]++;
   }
   updatePlayerStatus('실시간 뉴스 수집 중', `${getNewsSourceLabel(getPreferredNewsSources()[0])}로 선택한 카테고리의 최신 뉴스를 동시에 검색하는 중입니다...`);
-  // Start a direct API request in parallel so the first card can appear within 10 seconds.
-  void fetchFirstNewsFast(selectedCategories, state.prompt, requestedTotal, thisSession);
+  const prefersRssSummary = state.newsSourceMode === 'groq'
+    || (state.newsSourceMode === 'auto' && Boolean((state.groqApiKey || '').trim()));
 
-  fetchRemainingNewsByPlan(state.apiKey, categoryCounts, state.prompt, requestedTotal, thisSession)
+  // Append the first RSS summary immediately, then prioritize the second card.
+  const initialNewsPromise = prefersRssSummary
+    ? fetchFirstTwoRssNews(selectedCategories, state.prompt, requestedTotal, thisSession)
+    : Promise.resolve(void fetchFirstNewsFast(selectedCategories, state.prompt, requestedTotal, thisSession));
+
+  initialNewsPromise.then(() => fetchRemainingNewsByPlan(state.apiKey, categoryCounts, state.prompt, requestedTotal, thisSession))
     .catch(err => {
       if (thisSession !== currentFetchSession) return;
       state.lastRssError = err?.message || String(err);
@@ -2858,9 +2886,7 @@ function escapeHtml(value) {
 }
 
 function getSafeNewsUrl(value) {
-  const raw = String(value || '')
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/^(?:here(?:'s| is)|analysis|reasoning|thinking)[\s\S]*?(?=[가-힣])/i, '').trim();
+  const raw = String(value || '').trim();
   if (!raw) return '';
   try {
     const url = new URL(raw);
@@ -3393,7 +3419,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260718_v54')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v55')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
