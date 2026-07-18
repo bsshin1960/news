@@ -42,7 +42,8 @@
       <div class="menu-bar-top">
         <div class="logo">
           <i class="fa-solid fa-newspaper logo-icon"></i>
-          <span>Today's News <span class="accent logo-tts">TTS</span></span>
+          <span class="logo-label logo-label-desktop">Today's News <span class="accent logo-tts">TTS</span></span>
+          <span class="logo-label logo-label-mobile">Today'sNews</span>
         </div>
         
         <div class="header-actions">
@@ -123,7 +124,8 @@
     <main class="main-content">
       <section class="header-section">
         <div class="date-badge" id="current-date">2026년 7월 13일 월요일</div>
-        <h1 class="main-title">오늘의 뉴스</h1>
+        <h1 class="main-title"><span class="main-title-desktop">Today's News</span><span class="main-title-mobile">Today'sNews</span></h1>
+        <div class="news-source-badge" id="news-source-badge" style="font-size: 12px; color: var(--text-muted); margin-top: -4px; margin-bottom: 0; font-weight: 500;"></div>
       </section>
 
       <!-- 뉴스 카드 보드 -->
@@ -541,6 +543,6 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=20260713_final"></script>
+  <script type="module" src="app.js?v=20260718_v40"></script>
 </body>
 </html>

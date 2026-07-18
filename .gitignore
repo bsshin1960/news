@@ -4,3 +4,4 @@ dist-ssr/
 .DS_Store
 *.local
 .gemini/
+server_settings.json

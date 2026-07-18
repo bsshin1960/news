@@ -201,7 +201,7 @@ const articleTextProxy = () => ({
         const title = extractArticleTitle(html);
         const text = extractArticleText(html);
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.end(JSON.stringify({ title, text, finalUrl: response.url, resolvedUrl: resolvedTarget }));
+        res.end(JSON.stringify({ title, text, html, finalUrl: response.url, resolvedUrl: resolvedTarget }));
       } catch (error) {
         res.statusCode = 502;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -255,10 +255,51 @@ const copyPwaAssets = () => {
   };
 };
 
+const settingsSyncPlugin = () => ({
+  name: 'settings-sync-plugin',
+  configureServer(server) {
+    server.middlewares.use('/api/settings', async (req, res) => {
+      const settingsFilePath = path.resolve(__dirname, 'server_settings.json');
+      if (req.method === 'GET') {
+        let settings = {};
+        if (fs.existsSync(settingsFilePath)) {
+          try {
+            settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
+          } catch (e) {
+            console.error('Failed to parse server_settings.json:', e);
+          }
+        }
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify(settings));
+      } else if (req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => {
+          body += chunk;
+        });
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            fs.writeFileSync(settingsFilePath, JSON.stringify(data, null, 2), 'utf-8');
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+          }
+        });
+      } else {
+        res.statusCode = 405;
+        res.end();
+      }
+    });
+  }
+});
+
 export default defineConfig({
   // 상대 경로 빌드를 지원하여 GitHub Pages 등 하위 경로 배포 시 404 방지
   base: './',
-  plugins: [articleTextProxy(), copyPwaAssets()],
+  plugins: [articleTextProxy(), settingsSyncPlugin(), copyPwaAssets()],
   server: {
     proxy: {
       '/api/google-news': {

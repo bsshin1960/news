@@ -252,13 +252,22 @@ let voices = [];
 // ====================================================
 // 2. 초기 로드 및 UI 이벤트 바인딩
 // ====================================================
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+  await restoreSharedSettingsForThisDevice();
   initStorage();
+  if (!isMobileRuntime() && (state.apiKey || state.openaiApiKey)) {
+    void persistSharedNewsSettings();
+  }
   initVoices();
   initTheme(); // 테마 초기화
   bindUIEvents();
   bindKeyboardShortcuts();
   registerServiceWorker();
+
+  // 첫 진입 시 모바일에서 터치 시 자동 재생되도록 설정
+  if (isMobileRuntime()) {
+    state.shouldAutoplayOnGesture = true;
+  }
 
   // 첫 진입 시 자동으로 뉴스 수집 시작
   fetchNews();
@@ -375,28 +384,377 @@ function isUsefulExtractedArticleBody(extractedBody, rssBody) {
   return extracted.length > rss.length;
 }
 
+function isGoogleNewsUrl(value = '') {
+  try {
+    const url = new URL(value);
+    return url.hostname === 'news.google.com' && url.pathname.includes('/articles/');
+  } catch (_) {
+    return false;
+  }
+}
+
+function getGoogleNewsArticleId(value = '') {
+  try {
+    const url = new URL(value);
+    return url.pathname.split('/').filter(Boolean).pop() || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function resolveGoogleNewsUrlClient(value = '') {
+  if (!isGoogleNewsUrl(value)) return value;
+
+  const articleId = getGoogleNewsArticleId(value);
+  if (!articleId) return value;
+
+  const pageUrl = new URL(value);
+  pageUrl.searchParams.set('hl', 'ko');
+  pageUrl.searchParams.set('gl', 'KR');
+  pageUrl.searchParams.set('ceid', 'KR:ko');
+
+  const corsProxies = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    'https://api.codetabs.com/v1/proxy?quest='
+  ];
+
+  for (const proxy of corsProxies) {
+    try {
+      const fetchUrl = `${proxy}${encodeURIComponent(pageUrl.href)}`;
+      const response = await fetch(fetchUrl);
+      if (!response.ok) continue;
+
+      let html = await response.text();
+      if (proxy.includes('allorigins') && !html.trim().startsWith('<')) {
+        try {
+          html = JSON.parse(html).contents;
+        } catch (_) {}
+      }
+
+      if (!html) continue;
+
+      // 1. HTML 내에 직접적인 <a> 태그나 특정 패턴으로 원본 URL이 들어있는지 검색
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const anchors = doc.querySelectorAll('a');
+      for (const a of anchors) {
+        const href = a.getAttribute('href') || '';
+        if (href.startsWith('http') && !href.includes('google.com')) {
+          return href;
+        }
+      }
+
+      // 2. batchExecute API 호출 시도 (CORS 프록시 사용)
+      const signature = html.match(/data-n-a-sg="([^"]+)"/)?.[1];
+      const timestamp = html.match(/data-n-a-ts="([^"]+)"/)?.[1];
+      if (signature && timestamp) {
+        const rpcPayload = [[[
+          'Fbv4je',
+          JSON.stringify([
+            'garturlreq',
+            [['ko', 'KR', ['FINANCE_TOP_INDICES', 'GENESIS_PUBLISHER_SECTION', 'WEB_TEST_1_0_0'], null, null, 1, 1, 'KR:ko', null, 1, null, null, null, null, null, 0, 1], 'ko', 'KR', 1, [1, 1, 1], 1, 1, null, 0, 0, null, 0],
+            articleId,
+            Number(timestamp),
+            signature
+          ]),
+          null,
+          'generic'
+        ]]];
+
+        const batchUrl = 'https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je&hl=ko&gl=KR&ceid=KR%3Ako';
+        const proxyBatchUrl = `${proxy}${encodeURIComponent(batchUrl)}`;
+
+        const batchResponse = await fetch(proxyBatchUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+          },
+          body: `f.req=${encodeURIComponent(JSON.stringify(rpcPayload))}`
+        });
+
+        if (batchResponse.ok) {
+          const responseText = await batchResponse.text();
+          try {
+            const jsonLine = responseText.split('\n').find(line => line.trim().startsWith('['));
+            const parsed = JSON.parse(jsonLine);
+            const innerText = parsed?.[0]?.[2];
+            const inner = innerText ? JSON.parse(innerText) : null;
+            if (inner?.[1]) return inner[1];
+          } catch (_) {
+            const payloadMatch = responseText.match(/\\"garturlres\\",\\"((?:\\\\.|[^\\"])*)\\"/);
+            if (payloadMatch?.[1]) {
+              return JSON.parse(`"${payloadMatch[1]}"`);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('resolveGoogleNewsUrlClient proxy error:', e);
+    }
+  }
+
+  return value;
+}
+
+function decodeHtmlResponseClient(buffer, contentType = '') {
+  const bytes = new Uint8Array(buffer);
+  const utf8 = new TextDecoder('utf-8').decode(bytes);
+  const charset = (
+    contentType.match(/charset=([^;\s]+)/i)?.[1] ||
+    utf8.match(/<meta[^>]+charset=["']?([^\s"'>]+)/i)?.[1] ||
+    utf8.match(/<meta[^>]+content=["'][^"']*charset=([^\s"'>;]+)/i)?.[1] ||
+    ''
+  ).toLowerCase();
+
+  if (charset && (charset === 'euc-kr' || charset === 'cp949' || charset === 'ks_c_5601-1987')) {
+    try {
+      return new TextDecoder('euc-kr').decode(bytes);
+    } catch (_) {}
+  }
+
+  // 자동 한글 깨짐 (EUC-KR 모지바케) 지능형 감지
+  const hasReplacementChar = utf8.includes('\uFFFD');
+  const koreanMatches = utf8.match(/[가-힣]/g);
+  const koreanCount = koreanMatches ? koreanMatches.length : 0;
+  const chineseMatches = utf8.match(/[\u4e00-\u9fff]/g);
+  const chineseCount = chineseMatches ? chineseMatches.length : 0;
+
+  if (hasReplacementChar || (chineseCount > 50 && chineseCount > koreanCount) || (koreanCount > 0 && koreanCount < 20)) {
+    try {
+      const euckr = new TextDecoder('euc-kr').decode(bytes);
+      const euckrKoreanMatches = euckr.match(/[가-힣]/g);
+      const euckrKoreanCount = euckrKoreanMatches ? euckrKoreanMatches.length : 0;
+      if (euckrKoreanCount > koreanCount * 2) {
+        return euckr;
+      }
+    } catch (_) {}
+  }
+
+  if (charset && charset !== 'utf-8' && charset !== 'utf8') {
+    try {
+      return new TextDecoder(charset).decode(bytes);
+    } catch (_) {
+      return utf8;
+    }
+  }
+
+  return utf8;
+}
+
+function extractTitleFromHtmlClient(htmlText) {
+  if (!htmlText) return '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, 'text/html');
+
+    const ogTitle = doc.querySelector('meta[property="og:title"]');
+    if (ogTitle && ogTitle.getAttribute('content')) {
+      return ogTitle.getAttribute('content').replace(/\s+/g, ' ').trim();
+    }
+
+    const twitterTitle = doc.querySelector('meta[name="twitter:title"]');
+    if (twitterTitle && twitterTitle.getAttribute('content')) {
+      return twitterTitle.getAttribute('content').replace(/\s+/g, ' ').trim();
+    }
+
+    const h1 = doc.querySelector('h1');
+    if (h1 && h1.textContent) {
+      return h1.textContent.replace(/\s+/g, ' ').trim();
+    }
+
+    const titleTag = doc.querySelector('title');
+    if (titleTag && titleTag.textContent) {
+      return titleTag.textContent.replace(/\s+/g, ' ').trim();
+    }
+
+    return '';
+  } catch (e) {
+    console.warn('extractTitleFromHtmlClient error:', e);
+    return '';
+  }
+}
+
+function extractTextFromHtmlClient(htmlText) {
+  if (!htmlText) return '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, 'text/html');
+
+    const excludeSelectors = [
+      'script', 'style', 'noscript', 'header', 'footer', 'nav', 'aside', 'iframe', 'form',
+      '.footer', '.header', '.nav', '.sidebar', '#footer', '#header', '#nav', '#sidebar',
+      '.aside', '.comment', '.reply', '.ads', '.ad', '.ad-box', '.ad_box', '.banner'
+    ];
+    excludeSelectors.forEach(sel => {
+      try {
+        doc.querySelectorAll(sel).forEach(el => el.remove());
+      } catch (_) {}
+    });
+
+    const bodySelectors = [
+      'article',
+      '[itemprop="articleBody"]',
+      '#articleBody',
+      '#articleBodyContents',
+      '#article_body',
+      '#article_content',
+      '#newsEndContents',
+      '#artBody',
+      '.article_body',
+      '.article-body',
+      '.news_body',
+      '.article_txt',
+      '.article_content',
+      '.viewer',
+      '.story-news',
+      '.view_con',
+      '.news_content',
+      '.news_txt',
+      '.article_view',
+      '#article_view',
+      '#news_body',
+      '#news_content'
+    ];
+
+    let bodyText = '';
+    for (const selector of bodySelectors) {
+      const el = doc.querySelector(selector);
+      if (el) {
+        const clone = el.cloneNode(true);
+        const innerExclude = ['.reporter', '.author', '.sns', '.share', '.copyright', '.caption', '.byline', 'figcaption'];
+        innerExclude.forEach(sel => {
+          clone.querySelectorAll(sel).forEach(subEl => subEl.remove());
+        });
+
+        const text = clone.textContent || '';
+        const clean = text.replace(/\s+/g, ' ').trim();
+        if (clean.length > bodyText.length) {
+          bodyText = clean;
+        }
+      }
+    }
+
+    if (bodyText.length < 150) {
+      const paragraphTexts = [];
+      doc.querySelectorAll('p, div').forEach(el => {
+        if (el.tagName.toLowerCase() === 'div' && el.querySelector('div')) {
+          return;
+        }
+        const className = el.className || '';
+        const idName = el.id || '';
+        if (/comment|reply|footer|header|nav|menu|sidebar|banner|ad/i.test(className + ' ' + idName)) {
+          return;
+        }
+        const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (text.length >= 30) {
+          paragraphTexts.push(text);
+        }
+      });
+      if (paragraphTexts.length > 0) {
+        const combined = paragraphTexts.join(' ');
+        if (combined.length > bodyText.length) {
+          bodyText = combined;
+        }
+      }
+    }
+
+    if (bodyText.length < 150) {
+      const metaDesc = doc.querySelector('meta[name="description"], meta[property="og:description"]');
+      if (metaDesc) {
+        const content = metaDesc.getAttribute('content') || '';
+        const clean = content.replace(/\s+/g, ' ').trim();
+        if (clean.length > bodyText.length) {
+          bodyText = clean;
+        }
+      }
+    }
+
+    return bodyText;
+  } catch (e) {
+    console.warn('extractTextFromHtmlClient error:', e);
+    return '';
+  }
+}
+
 async function fetchArticleDetailsForRss(articleUrl) {
   const url = String(articleUrl || '').trim();
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname);
-  if (!url || !isLocal) return { title: '', text: '', finalUrl: url };
+  if (!url) return { title: '', text: '', finalUrl: url };
 
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000);
-    const resp = await fetch(`/api/article-text?url=${encodeURIComponent(url)}`, { signal: controller.signal });
-    clearTimeout(timer);
-    if (!resp.ok) return { title: '', text: '', finalUrl: url };
+  const isLocal = checkIsLocalEnvironment();
 
-    const data = await resp.json();
-    return {
-      title: String(data.title || '').replace(/\s+/g, ' ').trim(),
-      text: String(data.text || '').replace(/\s+/g, ' ').trim(),
-      finalUrl: String(data.finalUrl || data.resolvedUrl || url).trim()
-    };
-  } catch (err) {
-    console.info('RSS 원문 본문 추출 실패:', err?.message || err);
-    return { title: '', text: '', finalUrl: url };
+  if (isLocal) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      const resp = await fetch(`/api/article-text?url=${encodeURIComponent(url)}`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        const rawHtml = data.html || '';
+        let title = String(data.title || '').replace(/\s+/g, ' ').trim();
+        let text = String(data.text || '').replace(/\s+/g, ' ').trim();
+        const finalUrl = String(data.finalUrl || data.resolvedUrl || url).trim();
+
+        if (rawHtml) {
+          const clientTitle = extractTitleFromHtmlClient(rawHtml);
+          const clientText = extractTextFromHtmlClient(rawHtml);
+          if (clientTitle) title = clientTitle;
+          if (clientText && clientText.length > text.length) text = clientText;
+        }
+
+        return { title, text, finalUrl };
+      }
+    } catch (err) {
+      console.info('로컬 RSS 원문 본문 추출 실패, CORS 프록시로 대체 시도:', err?.message || err);
+    }
   }
+
+  const resolvedUrl = await resolveGoogleNewsUrlClient(url);
+  const corsProxies = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    'https://api.codetabs.com/v1/proxy?quest='
+  ];
+
+  for (const proxy of corsProxies) {
+    try {
+      const fetchUrl = `${proxy}${encodeURIComponent(resolvedUrl)}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const response = await fetch(fetchUrl, { signal: controller.signal });
+      clearTimeout(timer);
+
+      if (!response.ok) continue;
+
+      const arrayBuffer = await response.arrayBuffer();
+      const contentType = response.headers.get('content-type') || '';
+      let html = decodeHtmlResponseClient(arrayBuffer, contentType);
+
+      if (proxy.includes('allorigins') && !html.trim().startsWith('<')) {
+        try {
+          html = JSON.parse(html).contents;
+        } catch (_) {}
+      }
+
+      if (!html) continue;
+
+      const title = extractTitleFromHtmlClient(html);
+      const text = extractTextFromHtmlClient(html);
+
+      if (title || text) {
+        return {
+          title: title,
+          text: text,
+          finalUrl: resolvedUrl
+        };
+      }
+    } catch (err) {
+      console.warn(`CORS proxy [${proxy}] fetch failed for detail url [${resolvedUrl}]:`, err?.message || err);
+    }
+  }
+
+  return { title: '', text: '', finalUrl: resolvedUrl };
 }
 function initStorage() {
   const savedCategories = localStorage.getItem('news_categories');
@@ -499,6 +857,58 @@ function initStorage() {
   if (detailInput) detailInput.value = state.newsDetailChars;
   document.getElementById('speed-val').innerText = `${state.speed.toFixed(1)}x`;
   document.getElementById('speed-label').innerText = `${state.speed.toFixed(1)}x`;
+  updateNewsSourceModeDisplay();
+}
+
+function updateNewsSourceModeDisplay() {
+  const badge = document.getElementById('news-source-badge');
+  if (!badge) return;
+
+  let modeLabel = '';
+  
+  if (state.newsList && state.newsList.length > 0) {
+    const types = new Set();
+    state.newsList.forEach(item => {
+      if (item.isMock || item.source_type === 'mock') {
+        types.add('mock');
+      } else {
+        types.add(item.source_type || 'rss');
+      }
+    });
+
+    const labels = [];
+    if (types.has('openai')) labels.push('OpenAI API');
+    if (types.has('gemini')) labels.push('Gemini API');
+    if (types.has('rss')) labels.push('Google News RSS 피드');
+    if (types.has('mock')) labels.push('임시 샘플(Mock) 뉴스');
+
+    if (labels.length > 0) {
+      modeLabel = labels.join(' + ');
+    } else {
+      modeLabel = '알 수 없음';
+    }
+  } else {
+    const mode = state.newsSourceMode || 'auto';
+    if (mode === 'auto') {
+      const hasOpenai = (state.openaiApiKey || '').trim().length > 0;
+      const hasGemini = (state.apiKey || '').trim().length > 0;
+      if (hasOpenai) {
+        modeLabel = '자동 선택 (OpenAI API 우선)';
+      } else if (hasGemini) {
+        modeLabel = '자동 선택 (Gemini API 우선)';
+      } else {
+        modeLabel = '자동 선택 (Google News RSS 피드)';
+      }
+    } else if (mode === 'openai') {
+      modeLabel = 'OpenAI API';
+    } else if (mode === 'gemini') {
+      modeLabel = 'Gemini API';
+    } else if (mode === 'rss') {
+      modeLabel = 'Google News RSS 피드';
+    }
+  }
+
+  badge.innerText = `뉴스 수집 방식: ${modeLabel}`;
 }
 
 // 브라우저의 목소리 목록 가져오기 및 채우기
@@ -907,6 +1317,9 @@ function saveSettings() {
   localStorage.setItem('news_speed', speedValue.toString());
   localStorage.setItem('news_detail_chars', detailCharsValue.toString());
 
+  // Mobile restores these values on its next load and uses the same detailed API settings as the PC.
+  void persistSharedNewsSettings();
+
   // 플레이어바 목소리 퀵 드롭다운 동기화
   const playerVoiceSelect = document.getElementById('player-voice-select');
   if (playerVoiceSelect) {
@@ -915,6 +1328,8 @@ function saveSettings() {
 
   // 플레이어 속도 라벨 업데이트
   document.getElementById('speed-label').innerText = `${speedValue.toFixed(1)}x`;
+
+  updateNewsSourceModeDisplay();
 
   // 재생 중인 Utterance가 있다면 바로 속도/목소리 변경 반영
   if (synth.speaking) {
@@ -1187,6 +1602,71 @@ async function rateLimitedFetch(url, options) {
 function isMobileRuntime() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
 }
+
+// A phone and the PC use different localStorage stores even when they open the
+// same Vite server. Restore the PC's generation settings before the first fetch.
+async function restoreSharedSettingsForThisDevice() {
+  if (!isMobileRuntime() || !checkIsLocalEnvironment()) return;
+
+  try {
+    const response = await fetch('/api/settings', { cache: 'no-store' });
+    if (!response.ok) return;
+
+    const shared = await response.json();
+    const mappings = {
+      categories: 'news_categories',
+      sources: 'news_sources',
+      prompt: 'news_prompt',
+      apiKey: 'news_api_key',
+      openaiApiKey: 'news_openai_api_key',
+      newsSourceMode: 'news_source_mode',
+      newsDetailChars: 'news_detail_chars',
+      briefingMode: 'news_briefing_mode'
+    };
+
+    Object.entries(mappings).forEach(([settingKey, storageKey]) => {
+      if (shared[settingKey] === undefined || shared[settingKey] === null) return;
+      const value = Array.isArray(shared[settingKey])
+        ? JSON.stringify(shared[settingKey])
+        : String(shared[settingKey]);
+      localStorage.setItem(storageKey, value);
+    });
+  } catch (error) {
+    console.info('Shared settings are unavailable; using this device settings.', error?.message || error);
+  }
+}
+
+async function persistSharedNewsSettings() {
+  if (!checkIsLocalEnvironment()) return;
+
+  try {
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        categories: state.categories,
+        sources: state.sources,
+        prompt: state.prompt,
+        apiKey: state.apiKey,
+        openaiApiKey: state.openaiApiKey,
+        newsSourceMode: state.newsSourceMode,
+        newsDetailChars: state.newsDetailChars,
+        briefingMode: state.briefingMode
+      })
+    });
+  } catch (error) {
+    console.info('Could not share settings with other devices.', error?.message || error);
+  }
+}
+
+function checkIsLocalEnvironment() {
+  return window.location.hostname === 'localhost' ||
+         window.location.hostname === '127.0.0.1' ||
+         /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname) ||
+         window.location.hostname.endsWith('.local') ||
+         window.location.port !== '';
+}
+
 
 function getNewsErrorAdvice(message = '') {
   const text = String(message);
@@ -1505,7 +1985,7 @@ async function fetchOpenAINewsForCategory(apiKey, category, prompt, count = 1) {
   const detailChars = getNewsDetailTargetChars();
   const detailCharRange = getNewsDetailCharRangeText();
   const detailSentenceRange = getNewsDetailSentenceRange();
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname);
+  const isLocal = checkIsLocalEnvironment();
   const targetUrl = isLocal
     ? '/api/openai/v1/responses'
     : 'https://api.openai.com/v1/responses';
@@ -1942,6 +2422,7 @@ function updateMockWarningBanner() {
   if (banner) {
     banner.remove();
   }
+  updateNewsSourceModeDisplay();
 }
 
 // 뉴스 본문에서 "첫째, 둘째" 및 "[카테고리] 뉴스입니다" 같은 불필요한 단어를 정제하는 헬퍼 함수
@@ -2134,7 +2615,7 @@ function appendNewsCard(news, index) {
   }
 
   const bodyHtml = shouldShowBody
-    ? `<p class="card-body" id="card-body-${index}" style="display: ${initialDisplay}; margin-top: 12px; font-size: 14px; line-height: 1.6; color: var(--text-muted); opacity: ${initialOpacity}; transition: opacity 0.5s ease;">${escapeHtml(displayBody)}</p>`
+    ? `<p class="card-body" id="card-body-${index}" style="display: ${initialDisplay}; opacity: ${initialOpacity};">${escapeHtml(displayBody)}</p>`
     : '';
 
   const card = document.createElement('article');
@@ -2156,6 +2637,14 @@ function appendNewsCard(news, index) {
     </div>
   `;
   grid.appendChild(card);
+
+  // 카드 클릭 시 본문 토글 (모바일 편의성 향상)
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.btn-card-listen')) {
+      return;
+    }
+    toggleCardBody(index);
+  });
 
   // 개별 듣기 버튼 즉시 바인딩
   const btn = card.querySelector('.btn-card-listen');
@@ -2409,6 +2898,21 @@ function showAllCardBodies() {
   });
 }
 
+function toggleCardBody(index) {
+  const bodyEl = document.getElementById(`card-body-${index}`);
+  if (bodyEl) {
+    if (bodyEl.style.display === 'none') {
+      bodyEl.style.display = 'block';
+      bodyEl.offsetHeight; // Reflow
+      bodyEl.style.opacity = '1';
+    } else {
+      bodyEl.style.display = 'none';
+      bodyEl.style.opacity = '0';
+    }
+  }
+}
+
+
 function stopSpeech(resetUI = true) {
   synth.cancel();
 
@@ -2600,7 +3104,7 @@ document.addEventListener('touchstart', unlockTtsOnMobile);
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260717_v37')
+      navigator.serviceWorker.register('./sw.js?v=20260718_v44')
         .then((registration) => {
           console.log('서비스 워커가 성공적으로 등록되었습니다. Scope:', registration.scope);
 
